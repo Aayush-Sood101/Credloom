@@ -36,7 +36,8 @@ print("Tier 3:", predict_ai_risk_score(10, 5, 25, 60, 3)[0])
 
 '''
 The next logic should be something like this: 
-1. If the user has given the 
+based on the credit score generated, we are generating dynamic interest percentages
+while the lender will be agreeing upon the dynamic interest range. 
 
 '''
 
