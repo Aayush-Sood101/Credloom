@@ -34,6 +34,34 @@ print("Tier 2:", predict_ai_risk_score(10, 5, 25, 60, 2)[0])
 print("Tier 3:", predict_ai_risk_score(10, 5, 25, 60, 3)[0])  
 
 
+# !!!! Commands for fetching data
+
+# cURL
+"""
+curl -X POST http://13.202.107.244:5000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "total_transactions": 100,
+    "num_previous_loans": 2,
+    "total_previous_loans_eth": 1.5,
+    "holding_days": 30,
+    "Tier": 1
+  }'
+"""
+
+# Python
+"""
+import requests
+response = requests.post('http://13.202.107.244:5000/predict', json={
+'total_transactions': 100,
+'num_previous_loans': 2,
+'total_previous_loans_eth': 1.5,
+'holding_days': 30,
+'Tier': 1
+})
+print(response.json())
+"""
+
 '''
 The next logic should be something like this: 
 based on the credit score generated, we are generating dynamic interest percentages
