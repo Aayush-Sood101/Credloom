@@ -1,33 +1,12 @@
 import { Shield, Users, TrendingUp, Lock, Brain, Zap, CheckCircle, ArrowRight } from "lucide-react";
+import { Navbar } from '../components/Navbar'
 import Link from "next/link";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Navigation */}
-      <nav className="border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-xl fixed w-full z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-zinc-950" />
-              </div>
-              <span className="text-xl font-bold">Credloom</span>
-            </div>
-            <div className="hidden md:flex items-center gap-8">
-              <Link href="#features" className="text-zinc-400 hover:text-zinc-100 transition-colors">Features</Link>
-              <Link href="#how-it-works" className="text-zinc-400 hover:text-zinc-100 transition-colors">How It Works</Link>
-              <Link href="#users" className="text-zinc-400 hover:text-zinc-100 transition-colors">For Users</Link>
-            </div>
-            <div className="flex items-center gap-4">
-              <button className="text-zinc-400 hover:text-zinc-100 transition-colors">Sign In</button>
-              <button className="bg-gradient-to-r from-emerald-500 to-cyan-500 text-zinc-950 px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity">
-                Get Started
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-6">
