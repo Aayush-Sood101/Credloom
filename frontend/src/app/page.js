@@ -1,13 +1,9 @@
 import { Shield, Users, TrendingUp, Lock, Brain, Zap, CheckCircle, ArrowRight } from "lucide-react";
-import { Navbar } from '../components/Navbar'
 import Link from "next/link";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      {/* Navigation */}
-      <Navbar />
-
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-6">
         <div className="max-w-7xl mx-auto">
