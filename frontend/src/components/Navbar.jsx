@@ -51,17 +51,18 @@ const Navbar = () => {
             Home
           </Link>
           <Link
-            href="/contact"
-            className="text-zinc-400 text-sm font-medium transition-colors duration-300 hover:text-white"
-          >
-            Contact Us
-          </Link>
-          <Link
             href={getDashboardLink()}
             className="text-zinc-400 text-sm font-medium transition-colors duration-300 hover:text-white"
           >
             Dashboard
           </Link>
+          <Link
+            href="/contact"
+            className="text-zinc-400 text-sm font-medium transition-colors duration-300 hover:text-white"
+          >
+            Contact Us
+          </Link>
+          
         </div>
 
         {/* Right Side - Desktop */}
