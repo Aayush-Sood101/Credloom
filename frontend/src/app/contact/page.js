@@ -1,156 +1,143 @@
 "use client";
+import { motion } from "framer-motion";
+import ContactForm from "./ContactForm";
+import WebcamPixelGrid from "@/components/ui/webcam-pixel-grid";
 
-import { Mail, MessageSquare, MapPin, Phone } from "lucide-react";
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      delay: 0.3,
+      duration: 0.8,
+      ease: "easeInOut",
+      staggerChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.6,
+      ease: "easeInOut",
+    },
+  },
+};
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen bg-black pt-28 px-4 pb-16">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-            Get in Touch
-          </h1>
-          <p className="text-xl text-zinc-400 max-w-2xl mx-auto">
-            Have questions about Credloom? We&apos;re here to help you navigate the future of decentralized lending.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-12">
-          {/* Contact Form */}
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8">
-            <h2 className="text-2xl font-bold text-white mb-6">Send us a Message</h2>
-            <form className="space-y-6">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                  placeholder="John Doe"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                  placeholder="john@example.com"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="subject" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Subject
-                </label>
-                <input
-                  type="text"
-                  id="subject"
-                  className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                  placeholder="How can we help?"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="message" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Message
-                </label>
-                <textarea
-                  id="message"
-                  rows={6}
-                  className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none"
-                  placeholder="Tell us more about your inquiry..."
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-semibold rounded-xl shadow-lg hover:shadow-emerald-500/50 hover:opacity-90 transition-all"
-              >
-                Send Message
-              </button>
-            </form>
-          </div>
-
-          {/* Contact Info */}
-          <div className="space-y-8">
-            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8">
-              <h2 className="text-2xl font-bold text-white mb-6">Contact Information</h2>
-              
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Mail className="w-6 h-6 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-semibold mb-1">Email</h3>
-                    <p className="text-zinc-400 text-sm">support@credloom.io</p>
-                    <p className="text-zinc-400 text-sm">partners@credloom.io</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="w-6 h-6 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-semibold mb-1">Live Chat</h3>
-                    <p className="text-zinc-400 text-sm">Available 24/7 on our platform</p>
-                    <p className="text-zinc-400 text-sm">Response time: &lt; 5 minutes</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-6 h-6 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-semibold mb-1">Phone</h3>
-                    <p className="text-zinc-400 text-sm">+1 (555) 123-4567</p>
-                    <p className="text-zinc-400 text-sm">Mon-Fri, 9am-6pm EST</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-6 h-6 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-semibold mb-1">Office</h3>
-                    <p className="text-zinc-400 text-sm">123 DeFi Street</p>
-                    <p className="text-zinc-400 text-sm">San Francisco, CA 94102</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* FAQ Section */}
-            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8">
-              <h3 className="text-xl font-bold text-white mb-4">Quick Links</h3>
-              <div className="space-y-3">
-                <a href="#" className="block text-emerald-400 hover:text-emerald-300 transition-colors">
-                  📖 Documentation
-                </a>
-                <a href="#" className="block text-emerald-400 hover:text-emerald-300 transition-colors">
-                  ❓ FAQ
-                </a>
-                <a href="#" className="block text-emerald-400 hover:text-emerald-300 transition-colors">
-                  🔐 Security
-                </a>
-                <a href="#" className="block text-emerald-400 hover:text-emerald-300 transition-colors">
-                  📱 Community Discord
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="relative w-full min-h-screen overflow-hidden">
+      {/* WebcamPixelGrid Background - Fixed position covering entire viewport */}
+      <div className="fixed inset-0 z-0">
+        <WebcamPixelGrid
+          gridCols={64}
+          gridRows={48}
+          maxElevation={20}
+          motionSensitivity={0.35}
+          elevationSmoothing={0.12}
+          colorMode="monochrome"
+          monochromeColor="#ffffff"
+          backgroundColor="#000000"
+          mirror={true}
+          gapRatio={0.08}
+          invertColors={false}
+          darken={0.7}
+          borderColor="#ffffff"
+          borderOpacity={0.06}
+        />
       </div>
+
+      {/* Dark overlay for better readability */}
+      <div className="fixed inset-0 z-10 bg-black/40 backdrop-blur-[1px]" />
+
+      {/* Content Layer */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="relative z-20 w-full min-h-screen py-32 px-4 flex items-center justify-center antialiased"
+      >
+        <div className="container mx-auto px-4 md:px-6 max-w-7xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left Column - Text Content */}
+            <div className="space-y-8 pr-0 lg:pr-12 max-w-xl">
+              <motion.h1
+                variants={itemVariants}
+                className="text-5xl lg:text-6xl font-bold tracking-tight text-white leading-tight drop-shadow-2xl"
+              >
+                Faced any Issues?
+              </motion.h1>
+              <motion.p
+                variants={itemVariants}
+                className="text-xl text-gray-200 leading-relaxed font-medium drop-shadow-lg"
+              >
+                We are available for questions, feedback, or collaboration
+                opportunities. Let us know how we can help you achieve your goals!
+              </motion.p>
+              <motion.div
+                variants={itemVariants}
+                className="space-y-6 text-gray-200 pt-4"
+              >
+                {/* Email Contact */}
+                <a
+                  href="mailto:credloom@gmail.com"
+                  className="flex items-center space-x-4 group"
+                >
+                  <div className="bg-white/15 p-3 rounded-full backdrop-blur-lg transition-all duration-300 group-hover:scale-110 group-hover:bg-white/25 shadow-lg">
+                    <svg
+                      className="h-6 w-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 4.95a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                  <span className="text-lg font-medium transition-colors duration-300 group-hover:text-white drop-shadow-md">
+                    credloom@gmail.com
+                  </span>
+                </a>
+
+                {/* Phone Contact */}
+                <a href="tel:+919882715895" className="flex items-center space-x-4 group">
+                  <div className="bg-white/15 p-3 rounded-full backdrop-blur-lg transition-all duration-300 group-hover:scale-110 group-hover:bg-white/25 shadow-lg">
+                    <svg
+                      className="h-6 w-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                      />
+                    </svg>
+                  </div>
+                  <span className="text-lg font-medium transition-colors duration-300 group-hover:text-white drop-shadow-md">
+                    +91 9882715895
+                  </span>
+                </a>
+              </motion.div>
+            </div>
+            
+            {/* Right Column - Contact Form */}
+            <motion.div variants={itemVariants}>
+              <ContactForm />
+            </motion.div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

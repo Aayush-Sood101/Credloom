@@ -1,10 +1,19 @@
 "use client";
 
 import { SignUp } from "@clerk/nextjs";
-
+import { WavyBackground } from "@/components/wavy-background";
 export default function LenderSignUpPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-black pt-24">
+    <WavyBackground
+      colors={["#38bdf8", "#818cf8", "#c084fc", "#e879f9", "#22d3ee"]}
+      backgroundFill="black"
+      blur={10}
+      speed="slow"
+      waveOpacity={0.5}
+      // We use flexbox to perfectly center the sign-in card inside the available space.
+      containerClassName="h-full flex items-center justify-center p-4"
+    >
+    <div className="min-h-screen flex items-centre justify-center px-4 py-12 bg-black pt-24">
       <div className="w-full max-w-6xl flex flex-col md:flex-row items-center gap-12">
         {/* Left Side - Branding */}
         <div className="flex-1 text-center md:text-left">
@@ -66,5 +75,6 @@ export default function LenderSignUpPage() {
         </div>
       </div>
     </div>
+    </WavyBackground>
   );
 }
