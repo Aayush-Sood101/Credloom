@@ -1,17 +1,65 @@
 "use client"
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowRight, User, Lock, AlertCircle, Wallet } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignUpForm({ role, icon: Icon, title, description }) {
+  const router = useRouter();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
+    username: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    wallet: ''
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
+
+  // Get role-specific information
+  const getRoleInfo = () => {
+    const roleInfo = {
+      'borrower': {
+        roleName: 'Borrower',
+        hasTiers: true,
+        benefits: [
+          'Access instant loans from the marketplace',
+          'AI-powered credit scoring',
+          'Flexible repayment terms',
+          'Privacy-preserving verification'
+        ],
+        tierBenefits: 'Upgrade to higher tiers for better interest rates and larger loan amounts.',
+        nextSteps: 'After registration, you\'ll start at Tier 1. Verify your ENS for Tier 2, then add Gitcoin Passport for Tier 3 to unlock better loan terms.'
+      },
+      'lender': {
+        roleName: 'Lender',
+        hasTiers: false,
+        benefits: [
+          'Earn competitive returns on your capital',
+          'Automated loan matching system',
+          'Risk-based interest rates',
+          'Optional loan insurance protection'
+        ],
+        nextSteps: 'After registration, you can start lending immediately by configuring your lending parameters and browsing available loan opportunities.'
+      },
+      'insurer': {
+        roleName: 'Insurer',
+        hasTiers: false,
+        benefits: [
+          'Earn premiums by insuring loans',
+          'Automated risk assessment tools',
+          'Smart contract-based claims',
+          'Diversified premium portfolio'
+        ],
+        nextSteps: 'After registration, you can start insuring loans by setting your risk parameters and reviewing available loan insurance opportunities.'
+      }
+    };
+    return roleInfo[role] || roleInfo['borrower'];
+  };
+
+  const roleInfo = getRoleInfo();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -25,19 +73,22 @@ export default function SignUpForm({ role, icon: Icon, title, description }) {
         [name]: ''
       }));
     }
+    setApiError(null);
   };
 
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+    if (!formData.username.trim()) {
+      newErrors.username = 'Username is required';
+    } else if (formData.username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters';
     }
-    
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
+
+    if (!formData.wallet.trim()) {
+      newErrors.wallet = 'Wallet address is required';
+    } else if (!/^0x[a-fA-F0-9]{40}$/.test(formData.wallet)) {
+      newErrors.wallet = 'Invalid Ethereum wallet address';
     }
     
     if (!formData.password) {
@@ -62,32 +113,26 @@ export default function SignUpForm({ role, icon: Icon, title, description }) {
     }
     
     setIsLoading(true);
+    setApiError(null);
     
     try {
-      // TODO: Replace with actual API call to backend
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          role: role
-        }),
+      // All users start at Tier 1, role determines what they can do
+      const result = await register({
+        username: formData.username,
+        password: formData.password,
+        wallet: formData.wallet,
+        role: role  // Send role, not tier mapping
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Signup successful:', data);
-        // TODO: Redirect to dashboard based on role
-        // router.push(`/${role}`);
+      if (result.success) {
+        // Show success message and redirect to sign in
+        router.push('/signin?registered=true');
       } else {
-        const error = await response.json();
-        alert(`Signup failed: ${error.message || 'Unknown error'}`);
+        setApiError(result.error);
       }
     } catch (error) {
       console.error('Signup error:', error);
-      alert('Signup failed. Backend integration pending.');
+      setApiError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -115,11 +160,42 @@ export default function SignUpForm({ role, icon: Icon, title, description }) {
 
       {/* Form Card */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
+        {/* Role Information Banner */}
+        <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <div className="flex items-start gap-3">
+            <Icon className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold text-blue-400 mb-1">Signing up as: {roleInfo.roleName}</p>
+              <p className="text-sm text-gray-300 mb-2">As a {roleInfo.roleName.toLowerCase()}, you&apos;ll get access to:</p>
+              <ul className="text-sm text-gray-400 space-y-1 mb-2">
+                {roleInfo.benefits.map((benefit, index) => (
+                  <li key={index}>• {benefit}</li>
+                ))}
+              </ul>
+              {roleInfo.hasTiers && (
+                <p className="text-xs text-blue-300/80 mt-2">
+                  📊 <strong>Tiers:</strong> {roleInfo.tierBenefits}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* API Error Message */}
+        {apiError && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <p className="text-sm text-red-500 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              {apiError}
+            </p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Name Field */}
+          {/* Username Field */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
-              Full Name
+            <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
+              Username
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -127,49 +203,52 @@ export default function SignUpForm({ role, icon: Icon, title, description }) {
               </div>
               <input
                 type="text"
-                id="name"
-                name="name"
-                value={formData.name}
+                id="username"
+                name="username"
+                value={formData.username}
                 onChange={handleChange}
                 className={`block w-full pl-10 pr-3 py-3 bg-black border ${
-                  errors.name ? 'border-red-500' : 'border-zinc-700'
+                  errors.username ? 'border-red-500' : 'border-zinc-700'
                 } rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent`}
-                placeholder="John Doe"
+                placeholder="your_username"
               />
             </div>
-            {errors.name && (
+            {errors.username && (
               <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
                 <AlertCircle className="w-4 h-4" />
-                {errors.name}
+                {errors.username}
               </p>
             )}
           </div>
 
-          {/* Email Field */}
+          {/* Wallet Address Field */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-              Email Address
+            <label htmlFor="wallet" className="block text-sm font-medium text-gray-300 mb-2">
+              Ethereum Wallet Address
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-500" />
+                <Wallet className="h-5 w-5 text-gray-500" />
               </div>
               <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
+                type="text"
+                id="wallet"
+                name="wallet"
+                value={formData.wallet}
                 onChange={handleChange}
                 className={`block w-full pl-10 pr-3 py-3 bg-black border ${
-                  errors.email ? 'border-red-500' : 'border-zinc-700'
-                } rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent`}
-                placeholder="john@example.com"
+                  errors.wallet ? 'border-red-500' : 'border-zinc-700'
+                } rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent font-mono text-sm`}
+                placeholder="0x..."
               />
             </div>
-            {errors.email && (
+            <p className="mt-1 text-xs text-gray-500">
+              Your wallet will be used for all transactions on the platform
+            </p>
+            {errors.wallet && (
               <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
                 <AlertCircle className="w-4 h-4" />
-                {errors.email}
+                {errors.wallet}
               </p>
             )}
           </div>
@@ -245,12 +324,25 @@ export default function SignUpForm({ role, icon: Icon, title, description }) {
               </>
             ) : (
               <>
-                Create Account
+                Create {role.charAt(0).toUpperCase() + role.slice(1)} Account
                 <ArrowRight className="w-5 h-5" />
               </>
             )}
           </button>
         </form>
+
+        {/* Next Steps Info */}
+        <div className="mt-6 p-4 bg-zinc-800/50 rounded-lg">
+          <p className="text-xs font-semibold text-white mb-2">📋 What happens next?</p>
+          <p className="text-xs text-gray-400 mb-3">{roleInfo.nextSteps}</p>
+          {roleInfo.hasTiers && (
+            <div className="text-xs text-gray-500 space-y-1">
+              <p>• <strong>Tier 1</strong> (Starting tier) - Basic access to platform features</p>
+              <p>• <strong>Tier 2</strong> (ENS verified) - Enhanced features and better terms</p>
+              <p>• <strong>Tier 3</strong> (Passport verified) - Premium access and best rates</p>
+            </div>
+          )}
+        </div>
 
         {/* Divider */}
         <div className="mt-6 flex items-center gap-4">

@@ -1,6 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import Tier2Verification from '@/components/auth/Tier2Verification';
+import Tier3Verification from '@/components/auth/Tier3Verification';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { 
   Wallet, 
   TrendingUp, 
@@ -11,10 +15,35 @@ import {
   ChevronRight,
   Info,
   ArrowUp,
-  ExternalLink
+  ExternalLink,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 
 export default function BorrowerDashboard() {
+  const { user, tierStatus, loading, refreshTierStatus } = useAuth();
+  
+  // Fetch tier status on mount
+  useEffect(() => {
+    if (user && !loading) {
+      refreshTierStatus();
+    }
+  }, [user, loading, refreshTierStatus]);
+
+  const getTierBadgeColor = (tier) => {
+    const colors = {
+      1: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+      2: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
+      3: 'bg-green-500/10 border-green-500/20 text-green-400',
+    };
+    return colors[tier] || colors[1];
+  };
+
+  const getTierName = (tier) => {
+    const names = { 1: 'Basic', 2: 'ENS Verified', 3: 'Passport Verified' };
+    return names[tier] || 'Basic';
+  };
+
   // Mock data - TODO: Replace with actual API calls
   const [dashboardData, setDashboardData] = useState({
     wallet: {
@@ -141,6 +170,306 @@ export default function BorrowerDashboard() {
           <h1 className="text-4xl font-bold mb-2">Borrower Dashboard</h1>
           <p className="text-gray-400">Manage your loans and credit profile</p>
         </div>
+
+        {/* Tier Upgrade Call-to-Action Banner */}
+        {tierStatus && tierStatus.tier < 3 && (
+          <div className="mb-8 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-blue-500/20 rounded-xl p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-blue-500/20 rounded-lg">
+                  <ArrowUp className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-1">
+                    {tierStatus.tier === 1 && '🚀 Upgrade to Tier 2 for Better Rates!'}
+                    {tierStatus.tier === 2 && '⭐ Unlock Premium Benefits with Tier 3!'}
+                  </h3>
+                  <p className="text-gray-300 text-sm mb-3">
+                    {tierStatus.tier === 1 && 'Verify your ENS name to reduce interest rates by up to 2% and increase loan limits to $10,000.'}
+                    {tierStatus.tier === 2 && 'Verify your Gitcoin Passport to access the best rates (up to 4% reduction) and loan limits up to $50,000.'}
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    {tierStatus.tier === 1 && (
+                      <>
+                        <div className="flex items-center gap-1 text-green-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Lower rates</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-green-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Higher limits</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-green-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Priority matching</span>
+                        </div>
+                      </>
+                    )}
+                    {tierStatus.tier === 2 && (
+                      <>
+                        <div className="flex items-center gap-1 text-green-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Best rates</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-green-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Max limits</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-green-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Premium access</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <a
+                  href="#tier-verification"
+                  className="px-6 py-3 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+                >
+                  Upgrade Now
+                  <ChevronRight className="w-5 h-5" />
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tier Status & Upgrade Section */}
+        {tierStatus && (
+          <div id="tier-verification" className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-8 scroll-mt-24">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-zinc-800 rounded-lg">
+                  <Shield className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Your Verification Tier</h2>
+                  <p className="text-gray-400">Upgrade for better rates and higher loan amounts</p>
+                </div>
+              </div>
+              {tierStatus.tier && (
+                <div className={`px-4 py-2 rounded-lg border ${getTierBadgeColor(tierStatus.tier)}`}>
+                  <span className="font-semibold">Tier {tierStatus.tier}: {getTierName(tierStatus.tier)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Tier Progress Path */}
+            <div className="mb-6 bg-black border border-zinc-800 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                {[1, 2, 3].map((tier) => (
+                  <div key={tier} className="flex items-center flex-1">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
+                        tierStatus.tier >= tier 
+                          ? 'bg-green-500 border-green-500 text-white' 
+                          : tierStatus.tier === tier - 1
+                          ? 'bg-zinc-800 border-blue-500 text-blue-400 animate-pulse'
+                          : 'bg-zinc-800 border-zinc-700 text-gray-500'
+                      }`}>
+                        {tierStatus.tier >= tier ? (
+                          <CheckCircle className="w-6 h-6" />
+                        ) : (
+                          <span className="font-bold">{tier}</span>
+                        )}
+                      </div>
+                      <p className={`text-xs mt-2 font-medium ${
+                        tierStatus.tier >= tier ? 'text-green-400' : 
+                        tierStatus.tier === tier - 1 ? 'text-blue-400' : 'text-gray-500'
+                      }`}>
+                        {getTierName(tier)}
+                      </p>
+                    </div>
+                    {tier < 3 && (
+                      <div className={`flex-1 h-0.5 mx-2 ${
+                        tierStatus.tier >= tier + 1 ? 'bg-green-500' : 'bg-zinc-700'
+                      }`} />
+                    )}
+                  </div>
+                ))}
+              </div>
+              {tierStatus.tier < 3 && (
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-gray-400">
+                    {tierStatus.tier === 1 && 'Complete ENS verification to unlock Tier 2'}
+                    {tierStatus.tier === 2 && 'Complete Passport verification to unlock Tier 3'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Tier Status Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              {/* Tier Benefits Comparison */}
+              <div className="lg:col-span-2 bg-black border border-zinc-800 rounded-lg p-4 mb-2">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Info className="w-4 h-4 text-blue-400" />
+                  Tier Benefits Comparison
+                </h4>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  {/* Tier 1 */}
+                  <div className={`p-3 rounded-lg border ${tierStatus.tier === 1 ? 'bg-blue-500/10 border-blue-500/30' : 'bg-zinc-900 border-zinc-700'}`}>
+                    <p className="font-semibold text-blue-400 mb-2">Tier 1: Basic</p>
+                    <ul className="text-xs text-gray-400 space-y-1">
+                      <li>• Standard rates</li>
+                      <li>• Up to $5,000</li>
+                      <li>• Basic access</li>
+                    </ul>
+                  </div>
+                  {/* Tier 2 */}
+                  <div className={`p-3 rounded-lg border ${tierStatus.tier === 2 ? 'bg-purple-500/10 border-purple-500/30' : 'bg-zinc-900 border-zinc-700'}`}>
+                    <p className="font-semibold text-purple-400 mb-2">Tier 2: ENS</p>
+                    <ul className="text-xs text-gray-400 space-y-1">
+                      <li>• -2% interest</li>
+                      <li>• Up to $10,000</li>
+                      <li>• Priority matching</li>
+                    </ul>
+                  </div>
+                  {/* Tier 3 */}
+                  <div className={`p-3 rounded-lg border ${tierStatus.tier === 3 ? 'bg-green-500/10 border-green-500/30' : 'bg-zinc-900 border-zinc-700'}`}>
+                    <p className="font-semibold text-green-400 mb-2">Tier 3: Passport</p>
+                    <ul className="text-xs text-gray-400 space-y-1">
+                      <li>• -4% interest</li>
+                      <li>• Up to $50,000</li>
+                      <li>• Premium access</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tier 2 Status */}
+              <div className="bg-black border border-zinc-800 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold mb-1">Tier 2: ENS Verification</h3>
+                    <p className="text-sm text-gray-400">
+                      {tierStatus.tier >= 2 && tierStatus.tier2?.ens_verified 
+                        ? `Verified${tierStatus.tier2.ens_name ? ` with ENS: ${tierStatus.tier2.ens_name}` : ''}`
+                        : 'Verify your ENS name for better loan terms'}
+                    </p>
+                  </div>
+                  {tierStatus.tier >= 2 && tierStatus.tier2?.ens_verified ? (
+                    <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-6 h-6 text-gray-600 flex-shrink-0" />
+                  )}
+                </div>
+                {(tierStatus.tier < 2 || !tierStatus.tier2?.ens_verified) && (
+                  <div className="mt-3 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                    <p className="text-xs text-purple-300 mb-1">✨ Benefits:</p>
+                    <ul className="text-xs text-gray-400 space-y-1">
+                      <li>• Lower interest rates (up to 2% reduction)</li>
+                      <li>• Higher loan limits (up to $10,000)</li>
+                      <li>• Priority loan matching</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Tier 3 Status */}
+              <div className="bg-black border border-zinc-800 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold mb-1">Tier 3: Passport Verification</h3>
+                    <p className="text-sm text-gray-400">
+                      {tierStatus.tier >= 3 && tierStatus.tier3?.passport_verified === true 
+                        ? `Verified (Score: ${tierStatus.tier3.score})`
+                        : tierStatus.tier3?.score !== null
+                        ? `Score: ${tierStatus.tier3.score} / Required: ${tierStatus.tier3.threshold}`
+                        : tierStatus.tier >= 2
+                        ? 'Verify your Gitcoin Passport for best rates'
+                        : 'Complete Tier 2 first to unlock'}
+                    </p>
+                  </div>
+                  {tierStatus.tier >= 3 && tierStatus.tier3?.passport_verified === true ? (
+                    <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0" />
+                  ) : tierStatus.tier3?.score !== null && tierStatus.tier3?.passport_verified === false ? (
+                    <AlertCircle className="w-6 h-6 text-yellow-500 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-6 h-6 text-gray-600 flex-shrink-0" />
+                  )}
+                </div>
+                {(tierStatus.tier < 3 || tierStatus.tier3?.passport_verified !== true) && tierStatus.tier >= 2 && (
+                  <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <p className="text-xs text-green-300 mb-1">🌟 Premium Benefits:</p>
+                    <ul className="text-xs text-gray-400 space-y-1">
+                      <li>• Best interest rates (up to 4% reduction)</li>
+                      <li>• Maximum loan limits (up to $50,000)</li>
+                      <li>• Premium lender access</li>
+                      <li>• Flexible repayment terms</li>
+                    </ul>
+                  </div>
+                )}
+                {tierStatus.tier < 2 && (
+                  <div className="mt-3 p-3 bg-zinc-800 border border-zinc-700 rounded-lg">
+                    <p className="text-xs text-gray-400">
+                      Complete Tier 2 verification to unlock Tier 3
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Verification Forms - Show based on current tier */}
+            <div className="space-y-6">
+              {/* Tier 2 Verification - Show if not at Tier 2 yet */}
+              {(tierStatus.tier < 2 || !tierStatus.tier2?.ens_verified) && (
+                <div className="bg-gradient-to-br from-purple-500/5 to-blue-500/5 border border-purple-500/20 rounded-lg p-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-bold text-purple-400 mb-2">🚀 Upgrade to Tier 2</h3>
+                    <p className="text-gray-300 text-sm">
+                      Verify your ENS name to unlock better loan terms and higher limits.
+                    </p>
+                  </div>
+                  <Tier2Verification />
+                </div>
+              )}
+              
+              {/* Tier 3 Verification - Show if at Tier 2 or above, but not Tier 3 */}
+              {(tierStatus.tier >= 2 && tierStatus.tier2?.ens_verified) && 
+               (tierStatus.tier < 3 || tierStatus.tier3?.passport_verified !== true) && (
+                <div className="bg-gradient-to-br from-green-500/5 to-emerald-500/5 border border-green-500/20 rounded-lg p-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-bold text-green-400 mb-2">⭐ Upgrade to Tier 3</h3>
+                    <p className="text-gray-300 text-sm mb-2">
+                      Verify your Gitcoin Passport to access premium features and the best rates.
+                    </p>
+                    {tierStatus.tier3?.score !== null && (
+                      <div className="inline-flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded px-3 py-1 text-sm">
+                        <AlertCircle className="w-4 h-4 text-yellow-400" />
+                        <span className="text-yellow-300">
+                          Current Score: {tierStatus.tier3.score} / Required: {tierStatus.tier3.threshold}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <Tier3Verification />
+                </div>
+              )}
+
+              {/* All verified message - Only show when fully verified at Tier 3 */}
+              {tierStatus.tier >= 3 && tierStatus.tier2?.ens_verified && tierStatus.tier3?.passport_verified === true && (
+                <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-lg p-6 text-center">
+                  <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-3" />
+                  <h3 className="text-xl font-bold text-green-400 mb-2">Fully Verified! 🎉</h3>
+                  <p className="text-gray-300 mb-4">
+                    You&apos;ve unlocked all premium benefits and have access to the best rates on Credloom.
+                  </p>
+                  <Link
+                    href="/borrower/marketplace"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    Browse Premium Loans
+                    <ChevronRight className="w-5 h-5" />
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Eligibility Banner */}
         <div className="mb-8">
