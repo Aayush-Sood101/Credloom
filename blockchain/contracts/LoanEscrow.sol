@@ -36,8 +36,10 @@ contract LoanEscrow {
         address insurer;
         uint256 principal;
         uint256 interest;
-        uint256 duration;   // seconds
-        uint256 deadline;   // timestamp
+        uint256 duration;
+        // seconds
+        uint256 deadline;
+        // timestamp
         bool isInsured;
         LoanState state;
     }
@@ -51,7 +53,6 @@ contract LoanEscrow {
 
     ReputationRegistry public reputationRegistry;
     InsurancePool public insurancePool;
-
     /// @dev Liquidity pool allowed to inject escrowed funds
     address public liquidityPool;
 
@@ -64,7 +65,6 @@ contract LoanEscrow {
         address indexed borrower,
         address indexed lender
     );
-
     event LoanRepaid(uint256 indexed loanId);
     event LoanDefaulted(uint256 indexed loanId);
 
@@ -78,6 +78,7 @@ contract LoanEscrow {
     error DeadlineNotPassed();
     error IncorrectAmount();
     error NotAuthorized();
+    error TransferFailed();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -148,7 +149,9 @@ contract LoanEscrow {
         });
 
         // Release funds to borrower
-        payable(borrower).transfer(principal);
+        // FIX: Use .call instead of .transfer to prevent gas limit issues
+        (bool success, ) = payable(borrower).call{value: principal}("");
+        if (!success) revert TransferFailed();
 
         emit LoanFunded(loanCounter, borrower, lender);
     }
@@ -159,13 +162,13 @@ contract LoanEscrow {
 
     /**
      * @notice Borrower repays loan before deadline
+     * @dev Anyone can repay on behalf of the borrower
      */
     function repayLoan(uint256 loanId) external payable {
         Loan storage loan = loans[loanId];
 
-        if (msg.sender != loan.borrower) {
-            revert NotBorrower();
-        }
+        // FIX: Removed strict msg.sender == borrower check
+        // This allows recovery or 3rd party repayment
 
         if (loan.state != LoanState.FUNDED) {
             revert InvalidState();
@@ -177,7 +180,9 @@ contract LoanEscrow {
 
         loan.state = LoanState.REPAID;
 
-        payable(loan.lender).transfer(msg.value);
+        // FIX: Use .call instead of .transfer
+        (bool success, ) = payable(loan.lender).call{value: msg.value}("");
+        if (!success) revert TransferFailed();
 
         emit LoanRepaid(loanId);
     }
@@ -203,17 +208,22 @@ contract LoanEscrow {
         loan.state = LoanState.DEFAULTED;
 
         // Insurance payout (if applicable)
+        // FIX: Wrapped in try/catch to ensure borrower flagging happens
+        // even if insurer is insolvent or payout fails.
         if (loan.isInsured) {
-            insurancePool.payout(
+            try insurancePool.payout(
                 loan.insurer,
                 loan.lender,
                 loan.principal
-            );
+            ) {
+                // Payout succeeded
+            } catch {
+                // Payout failed (insolvency), but we continue to flag borrower
+            }
         }
 
         // Permanent borrower reputation damage
         reputationRegistry.flagBorrower(loan.borrower);
-
         emit LoanDefaulted(loanId);
     }
 }

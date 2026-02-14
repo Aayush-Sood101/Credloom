@@ -15,13 +15,13 @@ contract LenderLiquidityPool {
 
     uint256 public offerCounter;
     mapping(uint256 => Offer) public offers;
-
     address public protocol;     // backend wallet
     address public loanEscrow;   // LoanEscrow contract
 
     error NotLender();
     error OfferInactive();
     error NotAuthorized();
+    error TransferFailed();
 
     event OfferCreated(uint256 indexed offerId, address indexed lender);
     event OfferWithdrawn(uint256 indexed offerId);
@@ -59,7 +59,6 @@ contract LenderLiquidityPool {
         uint256 minCreditScore
     ) external payable {
         require(msg.value > 0, "Zero amount");
-
         offerCounter++;
 
         offers[offerCounter] = Offer({
@@ -69,18 +68,19 @@ contract LenderLiquidityPool {
             minCreditScore: minCreditScore,
             active: true
         });
-
         emit OfferCreated(offerCounter, msg.sender);
     }
 
     function withdrawOffer(uint256 offerId) external {
         Offer storage offer = offers[offerId];
-
         if (offer.lender != msg.sender) revert NotLender();
         if (!offer.active) revert OfferInactive();
 
         offer.active = false;
-        payable(msg.sender).transfer(offer.amount);
+        
+        // FIX: Use .call instead of .transfer
+        (bool success, ) = payable(msg.sender).call{value: offer.amount}("");
+        if (!success) revert TransferFailed();
 
         emit OfferWithdrawn(offerId);
     }
