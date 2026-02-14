@@ -110,3 +110,36 @@ def default_loan(loan_id: int):
 @router.get("/borrower/{address}/flagged")
 def borrower_flagged(address: str):
     return {"flagged": is_borrower_flagged(address)}
+
+# ---------------------------------------------------------
+# 5. BALANCE & SYSTEM CHECKS
+# ---------------------------------------------------------
+
+from app.blockchain.adapter import get_balance_wei
+from app.blockchain.contracts import liquidity_pool, loan_escrow
+
+@router.get("/balance/{address}")
+def get_address_balance(address: str):
+    """
+    Returns the ETH balance of any address (User or Contract).
+    """
+    try:
+        wei = get_balance_wei(address)
+        eth = float(wei) / 10**18  # Convert Wei to ETH for readability
+        return {
+            "address": address,
+            "balanceWei": wei,
+            "balanceEth": eth
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/system/contracts")
+def get_contract_addresses():
+    """
+    Returns the deployed addresses of the system contracts.
+    """
+    return {
+        "LiquidityPool": liquidity_pool.address,
+        "LoanEscrow": loan_escrow.address
+    }
