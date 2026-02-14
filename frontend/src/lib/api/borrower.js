@@ -4,6 +4,9 @@
 
 import { post, get } from './client';
 
+// Interest rate calculation backend URL
+const INTEREST_RATE_BACKEND_URL = process.env.NEXT_PUBLIC_INTEREST_RATE_API || 'http://localhost:5000';
+
 /**
  * Request a loan and get matching lenders
  * @param {number} amount - Requested loan amount
@@ -42,4 +45,35 @@ export async function getBorrowerLoans() {
  */
 export async function getBorrowerLoanDetail(loanId) {
   return get(`/borrower/${loanId}`, true);
+}
+
+/**
+ * Get interest rate for borrower from interest rate calculation backend
+ * @param {string} walletAddress - Borrower's wallet address
+ * @returns {Promise<object>} Interest rate data including rate, credit score, tier, risk state
+ */
+export async function getInterestRate(walletAddress) {
+  try {
+    const url = `${INTEREST_RATE_BACKEND_URL}/user/getrate/${walletAddress}`;
+    console.log('[InterestRate] Fetching rate from:', url);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Failed to fetch interest rate: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[InterestRate] Rate data received:', data);
+    return data;
+  } catch (error) {
+    console.error('[InterestRate] Error fetching interest rate:', error);
+    throw error;
+  }
 }
