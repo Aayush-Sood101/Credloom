@@ -1,6 +1,9 @@
 'use client'
 import { useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { requestLoan, selectLoan } from '@/lib/api/borrower';
+import { getUserId } from '@/lib/api/auth';
 import { 
   Search, 
   Shield, 
@@ -16,27 +19,22 @@ import {
 } from 'lucide-react';
 
 export default function LoanMarketplace() {
-  // Mock borrower data - TODO: Replace with actual API call
-  const [borrowerData, setBorrowerData] = useState({
-    creditScore: 750,
-    maxBorrowable: 5000,
-    isEligible: true,
-    tier: 'Silver',
-    interestRate: 10, // Based on credit score
-    rateOptions: [8, 10, 12] // Different rate options based on score
-  });
+  const { user, tierStatus } = useAuth();
+  
+  // Borrower data from API
+  const [borrowerData, setBorrowerData] = useState(null);
+  const [apiError, setApiError] = useState(null);
 
   // Form state
   const [loanAmount, setLoanAmount] = useState('');
-  const [selectedDuration, setSelectedDuration] = useState(null);
-  const [selectedRate, setSelectedRate] = useState(null);
+  const [selectedOption, setSelectedOption] = useState(null); // Store full option object
   const [selectedLender, setSelectedLender] = useState(null);
   const [searchSubmitted, setSearchSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [transactionStatus, setTransactionStatus] = useState(null); // null, 'pending', 'confirmed', 'error'
 
-  // Mock lender data - TODO: Replace with actual API call
+  // Mock lender data - will be populated by API
   const [lenders, setLenders] = useState([]);
 
   // Filter state
@@ -49,94 +47,105 @@ export default function LoanMarketplace() {
       return;
     }
 
-    if (parseFloat(loanAmount) > borrowerData.maxBorrowable) {
-      alert(`Amount exceeds maximum borrowable: $${borrowerData.maxBorrowable}`);
-      return;
-    }
-
     setIsLoading(true);
     setSearchSubmitted(true);
+    setApiError(null);
 
-    // TODO: Call backend API to check eligibility and fetch matching lenders
-    // const response = await fetch('/api/borrower/check-eligibility', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ amount: loanAmount })
-    // });
-    // const data = await response.json();
-
-    // Mock API delay
-    setTimeout(() => {
-      // Mock lender data
-      setLenders([
-        {
-          id: 'LENDER-001',
-          availableRange: { min: 1000, max: 3000 },
-          durations: [30, 60, 90],
-          isInsured: true,
-          insuranceProvider: 'INS-001'
-        },
-        {
-          id: 'LENDER-002',
-          availableRange: { min: 2000, max: 5000 },
-          durations: [60, 90],
-          isInsured: false,
-          insuranceProvider: null
-        },
-        {
-          id: 'LENDER-003',
-          availableRange: { min: 500, max: 2500 },
-          durations: [30, 60],
-          isInsured: true,
-          insuranceProvider: 'INS-002'
-        }
-      ]);
+    try {
+      // Call backend API to get matching lenders
+      const response = await requestLoan(parseFloat(loanAmount));
+      console.log('[Marketplace] Loan request response:', response);
+      
+      // Store borrower data from response
+      setBorrowerData({
+        borrower_id: response.borrower_id,
+        creditScore: response.credit_score,
+        wallet: response.borrower_wallet,
+        requestedAmount: response.requested_amount
+      });
+      
+      // Transform lenders data to match UI format
+      const transformedLenders = response.lenders.map(lender => ({
+        id: lender.lender_id,
+        wallet: lender.lender_wallet,
+        minScore: lender.min_score,
+        options: lender.options.map(opt => ({
+          option_id: opt.option_id,
+          duration: opt.duration_days,
+          minAmount: opt.min_amount,
+          availableAmount: opt.amount_available
+        }))
+      }));
+      
+      setLenders(transformedLenders);
+      console.log('[Marketplace] Transformed lenders:', transformedLenders);
+      
+    } catch (error) {
+      console.error('[Marketplace] Error fetching lenders:', error);
+      setApiError(error.message || 'Failed to fetch lenders');
+      setLenders([]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
-  const handleSelectLender = (lender, duration) => {
+  const handleSelectLender = (lender, option) => {
     setSelectedLender(lender);
-    setSelectedDuration(duration);
-    setSelectedRate(borrowerData.interestRate);
-  };
-
-  const handleConfirmLoan = () => {
+    setSelectedOption(option);
     setShowConfirmation(true);
   };
 
   const handleAcceptLoan = async () => {
-    setTransactionStatus('pending');
-    
-    // TODO: Call smart contract to initiate loan
-    // const tx = await contract.initiateLoan({
-    //   amount: loanAmount,
-    //   interestRate: selectedRate,
-    //   duration: selectedDuration,
-    //   lenderId: selectedLender.id
-    // });
-    // await tx.wait();
+    if (!borrowerData || !selectedLender || !selectedOption) {
+      setApiError('Missing required data for loan selection');
+      return;
+    }
 
-    // Mock transaction delay
-    setTimeout(() => {
+    setTransactionStatus('pending');
+    setApiError(null);
+    
+    try {
+      const loanData = {
+        loan_amt: parseFloat(loanAmount),
+        duration: selectedOption.duration,
+        lender_id: selectedLender.id,
+        borrower_id: borrowerData.borrower_id,
+        option_id: selectedOption.option_id
+      };
+      
+      console.log('[Marketplace] Selecting loan with data:', loanData);
+      const response = await selectLoan(loanData);
+      console.log('[Marketplace] Loan selected:', response);
+      
       setTransactionStatus('confirmed');
       
-      // Redirect to loan detail after 2 seconds
+      // Redirect to borrower dashboard after 2 seconds
       setTimeout(() => {
-        window.location.href = '/borrower/loan/LOAN-NEW-001';
+        window.location.href = '/borrower';
       }, 2000);
-    }, 3000);
+      
+    } catch (error) {
+      console.error('[Marketplace] Error selecting loan:', error);
+      setTransactionStatus('error');
+      setApiError(error.message || 'Failed to select loan');
+    }
   };
 
-  const calculateTotalRepayment = () => {
-    const principal = parseFloat(loanAmount);
-    const rate = selectedRate / 100;
-    const total = principal * (1 + rate);
+  const calculateTotalRepayment = (amount, rate) => {
+    const principal = parseFloat(amount);
+    const rateDecimal = rate / 100;
+    const total = principal * (1 + rateDecimal);
     return total.toFixed(2);
   };
 
   const filteredLenders = lenders.filter(lender => {
-    if (filterInsuredOnly && !lender.isInsured) return false;
-    if (filterMaxDuration && !lender.durations.includes(filterMaxDuration)) return false;
+    if (filterMaxDuration) {
+      // Check if any option has the filtered duration
+      const hasMatchingDuration = lender.options.some(
+        opt => opt.duration === filterMaxDuration
+      );
+      if (!hasMatchingDuration) return false;
+    }
     return true;
   });
 
@@ -185,7 +194,7 @@ export default function LoanMarketplace() {
   }
 
   // Confirmation Modal
-  if (showConfirmation && selectedLender && selectedDuration && selectedRate) {
+  if (showConfirmation && selectedLender && selectedOption) {
     return (
       <div className="min-h-screen bg-black text-white pt-24 pb-12 px-4">
         <div className="max-w-3xl mx-auto">
@@ -212,52 +221,40 @@ export default function LoanMarketplace() {
                   <p className="text-2xl font-bold">${loanAmount}</p>
                 </div>
                 <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
-                  <p className="text-sm text-gray-400 mb-1">Interest Rate</p>
-                  <p className="text-2xl font-bold">{selectedRate}%</p>
-                </div>
-                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
                   <p className="text-sm text-gray-400 mb-1">Duration</p>
-                  <p className="text-2xl font-bold">{selectedDuration} days</p>
+                  <p className="text-2xl font-bold">{selectedOption.duration} days</p>
                 </div>
                 <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
-                  <p className="text-sm text-gray-400 mb-1">Total Repayment</p>
-                  <p className="text-2xl font-bold text-green-400">${calculateTotalRepayment()}</p>
+                  <p className="text-sm text-gray-400 mb-1">Lender</p>
+                  <p className="text-sm font-mono">#{selectedLender.id}</p>
                 </div>
-              </div>
-
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-blue-400 mb-1">Insurance Status</p>
-                    <p className="text-sm text-gray-300">
-                      {selectedLender.isInsured ? (
-                        <>This loan is insured by provider {selectedLender.insuranceProvider}</>
-                      ) : (
-                        <>This loan is not insured</>
-                      )}
-                    </p>
-                  </div>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-1">Available Liquidity</p>
+                  <p className="text-sm font-bold">${selectedOption.availableAmount}</p>
                 </div>
               </div>
 
               <div className="border-t border-zinc-800 pt-6">
-                <h3 className="font-semibold mb-3">Repayment Schedule</h3>
+                <h3 className="font-semibold mb-3">Loan Terms</h3>
                 <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-gray-400">Single Payment Due</p>
-                      <p className="text-lg font-semibold">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Principal Amount</span>
+                      <span className="font-semibold">${loanAmount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Loan Duration</span>
+                      <span className="font-semibold">{selectedOption.duration} days</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Maturity Date</span>
+                      <span className="font-semibold">
                         {(() => {
                           const dueDate = new Date();
-                          dueDate.setDate(dueDate.getDate() + selectedDuration);
+                          dueDate.setDate(dueDate.getDate() + selectedOption.duration);
                           return dueDate.toLocaleDateString();
                         })()}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-400">Amount Due</p>
-                      <p className="text-lg font-semibold text-green-400">${calculateTotalRepayment()}</p>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -305,24 +302,35 @@ export default function LoanMarketplace() {
         </div>
 
         {/* Credit Score Info Banner */}
-        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-6 mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-blue-400" />
+        {borrowerData && (
+          <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-6 mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Your Credit Score</p>
+                  <p className="text-2xl font-bold text-blue-400">{borrowerData.creditScore}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-400">Your Credit Score</p>
-                <p className="text-2xl font-bold text-blue-400">{borrowerData.creditScore}</p>
+              <div className="text-right">
+                <p className="text-sm text-gray-400">Wallet</p>
+                <p className="font-mono text-sm">{borrowerData.wallet ? `${borrowerData.wallet.slice(0, 6)}...${borrowerData.wallet.slice(-4)}` : 'Not connected'}</p>
               </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-400">Your Interest Rate</p>
-              <p className="text-2xl font-bold text-green-400">{borrowerData.interestRate}%</p>
-              <p className="text-xs text-gray-500 mt-1">Based on your credit score</p>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* API Error Display */}
+        {apiError && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <p className="text-red-400">{apiError}</p>
+            </div>
+          </div>
+        )}
 
         {/* Search Form */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-8">
@@ -344,7 +352,7 @@ export default function LoanMarketplace() {
                 />
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Maximum: ${borrowerData.maxBorrowable} (based on your {borrowerData.tier} tier)
+                Enter the amount you wish to borrow
               </p>
             </div>
 
@@ -406,41 +414,45 @@ export default function LoanMarketplace() {
                   {filteredLenders.map((lender) => (
                     <div key={lender.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold">Lender #{lender.id.split('-')[1]}</h3>
-                        {lender.isInsured && (
-                          <span className="px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/20 rounded-full text-xs font-medium">
-                            Insured
-                          </span>
-                        )}
+                        <div>
+                          <h3 className="font-bold">Lender #{lender.id}</h3>
+                          <p className="text-xs text-gray-500 font-mono">{lender.wallet && `${lender.wallet.slice(0, 6)}...${lender.wallet.slice(-4)}`}</p>
+                        </div>
                       </div>
 
                       <div className="space-y-3 mb-6">
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Available Range</p>
-                          <p className="font-semibold">${lender.availableRange.min} - ${lender.availableRange.max}</p>
+                          <p className="text-xs text-gray-500 mb-1">Min Credit Score</p>
+                          <p className="font-semibold">{lender.minScore || 0}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Durations Offered</p>
-                          <div className="flex gap-2">
-                            {lender.durations.map((duration) => (
-                              <span key={duration} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-xs">
-                                {duration}d
-                              </span>
-                            ))}
-                          </div>
+                          <p className="text-xs text-gray-500 mb-1">Loan Options</p>
+                          <p className="text-sm text-gray-400">{lender.options.length} available</p>
                         </div>
                       </div>
 
                       <div className="border-t border-zinc-800 pt-4">
-                        <p className="text-sm text-gray-400 mb-3">Select Duration:</p>
+                        <p className="text-sm text-gray-400 mb-3">Select Loan Term:</p>
                         <div className="space-y-2">
-                          {lender.durations.map((duration) => (
+                          {lender.options
+                            .filter(opt => !filterMaxDuration || opt.duration === filterMaxDuration)
+                            .map((option) => (
                             <button
-                              key={duration}
-                              onClick={() => handleSelectLender(lender, duration)}
-                              className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg hover:border-blue-500 hover:bg-zinc-700 transition-colors text-sm font-medium"
+                              key={option.option_id}
+                              onClick={() => handleSelectLender(lender, option)}
+                              disabled={parseFloat(loanAmount) < option.minAmount || parseFloat(loanAmount) > option.availableAmount}
+                              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg hover:border-blue-500 hover:bg-zinc-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed text-left"
                             >
-                              {duration} days
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-semibold">{option.duration} days</span>
+                                <span className="text-xs text-gray-400">${option.minAmount} - ${option.availableAmount}</span>
+                              </div>
+                              {parseFloat(loanAmount) < option.minAmount && (
+                                <p className="text-xs text-red-400">Below minimum amount</p>
+                              )}
+                              {parseFloat(loanAmount) > option.availableAmount && (
+                                <p className="text-xs text-red-400">Exceeds available liquidity</p>
+                              )}
                             </button>
                           ))}
                         </div>
@@ -471,52 +483,6 @@ export default function LoanMarketplace() {
           </div>
         )}
 
-        {/* Rate Selection Popup */}
-        {selectedLender && selectedDuration && !showConfirmation && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md w-full">
-              <h3 className="text-xl font-bold mb-4">Select Your Interest Rate</h3>
-              <p className="text-sm text-gray-400 mb-6">
-                Based on your credit score ({borrowerData.creditScore}), you qualify for these rates:
-              </p>
-              
-              <div className="space-y-3 mb-6">
-                {borrowerData.rateOptions.map((rate) => (
-                  <button
-                    key={rate}
-                    onClick={() => {
-                      setSelectedRate(rate);
-                      handleConfirmLoan();
-                    }}
-                    className={`w-full px-4 py-3 bg-zinc-800 border rounded-lg hover:border-blue-500 transition-colors text-left ${
-                      rate === borrowerData.interestRate ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">{rate}%</span>
-                      {rate === borrowerData.interestRate && (
-                        <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">Recommended</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Total repayment: ${(parseFloat(loanAmount) * (1 + rate / 100)).toFixed(2)}
-                    </p>
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => {
-                  setSelectedLender(null);
-                  setSelectedDuration(null);
-                }}
-                className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg hover:bg-zinc-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

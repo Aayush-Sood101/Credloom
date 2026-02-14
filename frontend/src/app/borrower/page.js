@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { getBorrowerLoans } from '@/lib/api/borrower';
 import Tier2Verification from '@/components/auth/Tier2Verification';
 import Tier3Verification from '@/components/auth/Tier3Verification';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -29,6 +30,32 @@ export default function BorrowerDashboard() {
       refreshTierStatus();
     }
   }, [user, loading, refreshTierStatus]);
+
+  // Real loans data from API
+  const [loansData, setLoansData] = useState({ loans: [], total: 0 });
+  const [loansLoading, setLoansLoading] = useState(true);
+  const [loansError, setLoansError] = useState(null);
+
+  // Fetch borrower loans
+  useEffect(() => {
+    const fetchLoans = async () => {
+      if (!user) return;
+      
+      try {
+        setLoansLoading(true);
+        const response = await getBorrowerLoans();
+        console.log('[Dashboard] Loans response:', response);
+        setLoansData(response);
+      } catch (error) {
+        console.error('[Dashboard] Error fetching loans:', error);
+        setLoansError(error.message || 'Failed to fetch loans');
+      } finally {
+        setLoansLoading(false);
+      }
+    };
+
+    fetchLoans();
+  }, [user]);
 
   const getTierBadgeColor = (tier) => {
     const colors = {
@@ -153,6 +180,7 @@ export default function BorrowerDashboard() {
 
   const getStatusColor = (status) => {
     const colors = {
+      'selected': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
       'Active': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
       'Repaying': 'bg-green-500/10 text-green-400 border-green-500/20',
       'Overdue': 'bg-red-500/10 text-red-400 border-red-500/20',
@@ -642,22 +670,19 @@ export default function BorrowerDashboard() {
             </div>
             <div className="space-y-4">
               <div>
-                <p className="text-3xl font-bold">{dashboardData.loans.activeCount}</p>
-                <p className="text-sm text-gray-400">Open loans</p>
+                <p className="text-3xl font-bold">{loansData.total}</p>
+                <p className="text-sm text-gray-400">Total loans</p>
               </div>
-              <div className="pt-4 border-t border-zinc-800 space-y-3">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Total Outstanding</p>
-                  <p className="text-lg font-bold">${dashboardData.loans.totalOutstanding}</p>
+              {loansLoading && (
+                <div className="pt-4 border-t border-zinc-800">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="w-4 h-4 text-orange-400" />
-                  <div>
-                    <p className="text-gray-400">Next payment</p>
-                    <p className="font-semibold text-orange-400">{countdown}</p>
-                  </div>
+              )}
+              {loansError && (
+                <div className="pt-4 border-t border-zinc-800">
+                  <p className="text-xs text-red-400">{loansError}</p>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -666,129 +691,112 @@ export default function BorrowerDashboard() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold">Your Loans</h2>
-            <Link 
-              href="/borrower/loans"
-              className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-            >
-              View All
-              <ChevronRight className="w-4 h-4" />
-            </Link>
           </div>
 
-          {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-zinc-800">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Loan ID</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Amount</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Interest</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Duration</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Status</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Deadline</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Progress</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-400"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboardData.loans.list.map((loan) => (
-                  <tr 
-                    key={loan.id}
-                    className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors cursor-pointer"
-                    onClick={() => window.location.href = `/borrower/loan/${loan.id}`}
+          {loansLoading && (
+            <div className="text-center py-12">
+              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-gray-400">Loading your loans...</p>
+            </div>
+          )}
+
+          {loansError && (
+            <div className="text-center py-12">
+              <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+              <p className="text-gray-400">{loansError}</p>
+            </div>
+          )}
+
+          {!loansLoading && !loansError && loansData.loans.length > 0 && (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-zinc-800">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Loan ID</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Principal</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Duration</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Lender</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-400"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loansData.loans.map((loan) => (
+                      <tr 
+                        key={loan.loan_id}
+                        className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                        onClick={() => window.location.href = `/borrower/loan/${loan.loan_id}`}
+                      >
+                        <td className="py-4 px-4">
+                          <p className="font-mono text-sm">{loan.loan_id}</p>
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="font-semibold">${loan.principal}</p>
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="text-sm text-gray-400">{loan.duration_days} days</p>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(loan.status)}`}>
+                            {loan.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="text-sm text-gray-400">Lender #{loan.lender_id}</p>
+                        </td>
+                        <td className="py-4 px-4">
+                          <ChevronRight className="w-5 h-5 text-gray-400" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-4">
+                {loansData.loans.map((loan) => (
+                  <Link
+                    key={loan.loan_id}
+                    href={`/borrower/loan/${loan.loan_id}`}
+                    className="block bg-zinc-800 border border-zinc-700 rounded-lg p-4 hover:border-zinc-600 transition-colors"
                   >
-                    <td className="py-4 px-4">
-                      <p className="font-mono text-sm">{loan.id}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="font-semibold">${loan.amount}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-sm">{loan.interestRate}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-sm text-gray-400">{loan.duration}</p>
-                    </td>
-                    <td className="py-4 px-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="font-mono text-sm font-semibold">{loan.loan_id}</p>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(loan.status)}`}>
                         {loan.status}
                       </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-sm">{new Date(loan.deadline).toLocaleDateString()}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-blue-500 transition-all"
-                            style={{ width: `${loan.progress}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-400">{loan.progress}%</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-gray-400">Principal</p>
+                        <p className="font-semibold">${loan.principal}</p>
                       </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
-                    </td>
-                  </tr>
+                      <div>
+                        <p className="text-xs text-gray-400">Duration</p>
+                        <p className="font-semibold">{loan.duration_days} days</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Lender</p>
+                        <p className="text-sm">#{loan.lender_id}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Borrower</p>
+                        <p className="text-sm">#{loan.borrower_id}</p>
+                      </div>
+                    </div>
+                  </Link>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </>
+          )}
 
-          {/* Mobile Cards */}
-          <div className="md:hidden space-y-4">
-            {dashboardData.loans.list.map((loan) => (
-              <Link
-                key={loan.id}
-                href={`/borrower/loan/${loan.id}`}
-                className="block bg-zinc-800 border border-zinc-700 rounded-lg p-4 hover:border-zinc-600 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <p className="font-mono text-sm font-semibold">{loan.id}</p>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(loan.status)}`}>
-                    {loan.status}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <p className="text-xs text-gray-400">Amount</p>
-                    <p className="font-semibold">${loan.amount}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Interest</p>
-                    <p className="font-semibold">{loan.interestRate}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Duration</p>
-                    <p className="text-sm">{loan.duration}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Deadline</p>
-                    <p className="text-sm">{new Date(loan.deadline).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>Progress</span>
-                    <span>{loan.progress}%</span>
-                  </div>
-                  <div className="w-full h-2 bg-zinc-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-blue-500 transition-all"
-                      style={{ width: `${loan.progress}%` }}
-                    />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          {dashboardData.loans.list.length === 0 && (
+          {!loansLoading && !loansError && loansData.loans.length === 0 && (
             <div className="text-center py-12">
               <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 mb-4">No active loans</p>
+              <p className="text-gray-400 mb-4">No loans yet</p>
               <Link
                 href="/borrower/marketplace"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-colors"
