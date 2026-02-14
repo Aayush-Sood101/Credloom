@@ -1,18 +1,15 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel  # <--- ADDED THIS
+from pydantic import BaseModel
 from app.blockchain.adapter import (
     accept_offer,
     trigger_default,
     is_borrower_flagged,
     get_offer_amount,
-    create_offer_custodial      # <--- ADDED THIS
+    create_offer_custodial
 )
+from app.database import create_loan_proposal, get_active_offers, finalize_loan_acceptance
 
 router = APIRouter()
-
-# ---------------------------------------------------------
-# 1. NEW ENDPOINT: Create Offer (Custodial)
-# ---------------------------------------------------------
 
 class CreateOfferRequest(BaseModel):
     lenderAddress: str
@@ -20,83 +17,88 @@ class CreateOfferRequest(BaseModel):
     durationDays: int
     minCreditScore: int
 
-# In app/api/routes.py
-
 @router.post("/lender/create-offer")
 def create_offer_endpoint(payload: CreateOfferRequest):
     try:
         duration_seconds = payload.durationDays * 86400
-        
-        # Now returns a dict with 'offerId'
         result = create_offer_custodial(
             lender_address=payload.lenderAddress, 
             duration=duration_seconds,
             min_credit_score=payload.minCreditScore,
             amount_eth=payload.amountEth
         )
-        
-        return {
-            "success": True,
-            "txHash": result["txHash"],
-            "offerId": result["offerId"]  # <--- This is what you need for your DB!
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Supabase update
+        create_loan_proposal(
+            offer_id=result["offerId"],
+            lender_wallet=payload.lenderAddress,
+            amount_eth=payload.amountEth,
+            duration_days=payload.durationDays,
+            min_credit_score=payload.minCreditScore
+        )
+        return {"success": True, "txHash": result["txHash"], "offerId": result["offerId"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-# ---------------------------------------------------------
-# 2. EXISTING ENDPOINTS
-# ---------------------------------------------------------
 
-# In app/api/routes.py
+@router.get("/market/offers")
+def get_open_offers_api():
+    try:
+        offers = get_active_offers()
+        formatted_offers = []
+        for o in offers:
+            formatted_offers.append({
+                "offerId": o["chain_offer_id"],
+                "lender": o["lender_wallet"],
+                "amountEth": o["amount_available"],
+                "durationDays": o["duration_days"],
+                "minCreditScore": o["min_score"]
+            })
+        return {"offers": formatted_offers}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/loan/accept")
 def accept_offer_api(payload: dict):
-    # 1. Validate Inputs
     required = ["offerId", "borrower", "interestRate", "isInsured", "insurer"]
     for field in required:
         if field not in payload:
             raise HTTPException(status_code=400, detail=f"Missing {field}")
 
     offer_id = payload["offerId"]
-    interest_rate_percent = payload["interestRate"] # e.g., 8 or 10.5
+    interest_rate = payload["interestRate"]
     
-    # 2. Fetch Principal Amount from Blockchain
-    # We need this to calculate the exact interest amount in Wei
     try:
+        # 1. Fetch Principal from Chain
         principal_wei = get_offer_amount(offer_id)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Offer not found or chain error: {str(e)}")
-
-    if principal_wei <= 0:
-        raise HTTPException(status_code=400, detail="Offer is not active or has 0 balance")
-
-    # 3. Calculate Interest Amount (in Wei)
-    # Formula: Principal * Rate / 100
-    # We use integer math for precision (Basis points approach is safer, but this is simple)
-    interest_wei = int(principal_wei * interest_rate_percent / 100)
-
-    # 4. Execute Blockchain Transaction
-    try:
-        tx_hash = accept_offer(
+        interest_wei = int(principal_wei * interest_rate / 100)
+        
+        # 2. Blockchain Execution (Fixed keyword argument from 'interest_wei' to 'interest')
+        blockchain_result = accept_offer(
             offer_id=offer_id,
             borrower=payload["borrower"],
-            interest=interest_wei,
+            interest=interest_wei, # Matches adapter.py definition
             is_insured=payload["isInsured"],
             insurer=payload["insurer"]
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Blockchain error: {str(e)}")
+        
+        # 3. Database Finalization (Sync to loans table)
+        db_success = finalize_loan_acceptance(
+            chain_offer_id=offer_id,
+            blockchain_loan_id=blockchain_result["blockchainLoanId"],
+            borrower_wallet=payload["borrower"],
+            interest_rate=interest_rate,
+            tx_hash=blockchain_result["txHash"],
+            is_insured=payload["isInsured"],
+            insurer_wallet=payload["insurer"]
+        )
 
-    return {
-        "success": True,
-        "txHash": tx_hash,
-        "loanDetails": {
-            "principalWei": principal_wei,
-            "interestWei": interest_wei,
-            "rate": interest_rate_percent
+        return {
+            "success": True, 
+            "txHash": blockchain_result["txHash"],
+            "loanId": blockchain_result["blockchainLoanId"],
+            "db_updated": db_success
         }
-    }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/loan/default/{loan_id}")
 def default_loan(loan_id: int):
@@ -104,7 +106,6 @@ def default_loan(loan_id: int):
         return {"txHash": trigger_default(loan_id)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/borrower/{address}/flagged")
 def borrower_flagged(address: str):
