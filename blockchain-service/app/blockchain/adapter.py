@@ -71,3 +71,12 @@ def trigger_default(loan_id: int) -> str:
 
 def is_borrower_flagged(address: str) -> bool:
     return reputation_registry.functions.isBorrowerFlagged(address).call()
+
+def get_offer_amount(offer_id: int) -> int:
+    """
+    Fetches the principal amount for a specific offer.
+    Returns amount in Wei.
+    """
+    # Struct: (lender, amount, duration, minCreditScore, active)
+    offer_data = liquidity_pool.functions.offers(offer_id).call()
+    return offer_data[1]  # index 1 is 'amount'

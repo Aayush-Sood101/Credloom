@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException
 from app.blockchain.adapter import (
     accept_offer,
     trigger_default,
-    is_borrower_flagged
+    is_borrower_flagged,
+    get_offer_amount
 )
 
 router = APIRouter()
@@ -15,25 +16,41 @@ def accept_offer_api(payload: dict):
         if field not in payload:
             raise HTTPException(status_code=400, detail=f"Missing {field}")
 
-    # 🔥 Interest calculated from credit score (example)
+    offer_id = payload["offerId"]
     credit_score = payload["creditScore"]
+    
+    # 1. Fetch principal from chain to calculate correct interest
+    try:
+        principal = get_offer_amount(offer_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Offer not found or chain error: {str(e)}")
 
+    # 2. Determine Interest Rate (Basis Points)
+    # 750+ -> 5% (500 bps), 650+ -> 10% (1000 bps), else 20% (2000 bps)
     if credit_score >= 750:
-        interest = 5 * 10**16      # 5%
+        rate_bps = 500 
     elif credit_score >= 650:
-        interest = 10 * 10**16     # 10%
+        rate_bps = 1000
     else:
-        interest = 20 * 10**16     # 20%
+        rate_bps = 2000
 
-    tx_hash = accept_offer(
-        offer_id=payload["offerId"],
-        borrower=payload["borrower"],
-        interest=interest,
-        is_insured=payload["isInsured"],
-        insurer=payload["insurer"]
-    )
+    # 3. Calculate Interest Amount
+    # Interest = Principal * Rate / 10000
+    interest = (principal * rate_bps) // 10000
 
-    return {"txHash": tx_hash}
+    # 4. Execute Transaction
+    try:
+        tx_hash = accept_offer(
+            offer_id=offer_id,
+            borrower=payload["borrower"],
+            interest=interest,
+            is_insured=payload["isInsured"],
+            insurer=payload["insurer"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Blockchain error: {str(e)}")
+
+    return {"txHash": tx_hash, "calculatedInterest": interest}
 
 
 @router.post("/loan/default/{loan_id}")

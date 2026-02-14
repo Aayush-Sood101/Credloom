@@ -66,6 +66,9 @@ async function main() {
   // LoanEscrow trusts LiquidityPool
   await (await loanEscrow.setLiquidityPool(liquidityPoolAddr)).wait();
 
+  // FIX: LiquidityPool trusts LoanEscrow (was missing)
+  await (await liquidityPool.setLoanEscrow(loanEscrowAddr)).wait();
+
   // LiquidityPool trusts BACKEND (protocol)
   await (await liquidityPool.setProtocol(deployer.address)).wait();
 
