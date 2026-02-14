@@ -5,18 +5,17 @@ import Link from "next/link";
 import { FiMenu, FiX, FiChevronDown } from "react-icons/fi";
 import { Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUser, SignOutButton } from "@clerk/nextjs";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
-  const { isSignedIn, user } = useUser();
   
-  // Get user type from Clerk metadata
-  const userType = user?.unsafeMetadata?.userType;
+  // TODO: Replace with your actual auth state management (e.g., Context API, Zustand, Redux)
+  const isSignedIn = false; // This should come from your auth state
+  const userType = null; // This should come from your auth state (borrower/lender/insurer)
 
   const getDashboardLink = () => {
-    if (!isSignedIn) return "/sign-in";
+    if (!isSignedIn) return "/signin";
     
     switch (userType) {
       case "borrower":
@@ -28,6 +27,11 @@ const Navbar = () => {
       default:
         return "/select-role";
     }
+  };
+
+  const handleSignOut = () => {
+    // TODO: Implement your sign out logic here
+    console.log("Sign out clicked");
   };
 
   return (
@@ -51,17 +55,18 @@ const Navbar = () => {
             Home
           </Link>
           <Link
-            href="/contact"
-            className="text-zinc-400 text-sm font-medium transition-colors duration-300 hover:text-white"
-          >
-            Contact Us
-          </Link>
-          <Link
             href={getDashboardLink()}
             className="text-zinc-400 text-sm font-medium transition-colors duration-300 hover:text-white"
           >
             Dashboard
           </Link>
+          <Link
+            href="/contact"
+            className="text-zinc-400 text-sm font-medium transition-colors duration-300 hover:text-white"
+          >
+            Contact Us
+          </Link>
+          
         </div>
 
         {/* Right Side - Desktop */}
@@ -73,18 +78,19 @@ const Navbar = () => {
                   {userType ? userType.charAt(0).toUpperCase() + userType.slice(1) : "User"}
                 </span>
               </div>
-              <SignOutButton>
-                <button className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors">
-                  Sign Out
-                </button>
-              </SignOutButton>
+              <button 
+                onClick={handleSignOut}
+                className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+              >
+                Sign Out
+              </button>
             </div>
           ) : (
             <>
 
               {/* Log In Button */}
               <Link
-                href="/sign-in"
+                href="/signin"
                 className="px-5 py-2.5 text-sm font-medium text-white border border-zinc-800 rounded-lg hover:border-zinc-700 hover:bg-zinc-900 transition-colors"
               >
                 Log In
@@ -112,7 +118,7 @@ const Navbar = () => {
                       className="absolute right-0 mt-2 w-56 py-2 bg-zinc-950 border border-zinc-800 rounded-lg shadow-2xl"
                     >
                       <Link
-                        href="/sign-up/borrower"
+                        href="/signup-borrower"
                         className="block px-4 py-3 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors"
                       >
                         <div className="font-medium">Sign up as Borrower</div>
@@ -120,7 +126,7 @@ const Navbar = () => {
                       </Link>
                       <div className="h-px bg-zinc-800 my-1"></div>
                       <Link
-                        href="/sign-up/lender"
+                        href="/signup-lender"
                         className="block px-4 py-3 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors"
                       >
                         <div className="font-medium">Sign up as Lender</div>
@@ -128,7 +134,7 @@ const Navbar = () => {
                       </Link>
                       <div className="h-px bg-zinc-800 my-1"></div>
                       <Link
-                        href="/sign-up/insurer"
+                        href="/signup-insurer"
                         className="block px-4 py-3 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors"
                       >
                         <div className="font-medium">Sign up as Insurer</div>
@@ -208,11 +214,12 @@ const Navbar = () => {
                     {userType ? userType.charAt(0).toUpperCase() + userType.slice(1) : "User"}
                   </span>
                 </div>
-                <SignOutButton>
-                  <button className="text-lg text-zinc-300 hover:text-white">
-                    Sign Out
-                  </button>
-                </SignOutButton>
+                <button 
+                  onClick={handleSignOut}
+                  className="text-lg text-zinc-300 hover:text-white"
+                >
+                  Sign Out
+                </button>
               </motion.div>
             ) : (
               <>
@@ -224,21 +231,21 @@ const Navbar = () => {
                 >
                   <p className="text-sm text-zinc-400 mb-2">Sign up as:</p>
                   <Link
-                    href="/sign-up/borrower"
+                    href="/signup-borrower"
                     className="px-6 py-3 text-lg font-medium text-white rounded-full bg-gradient-to-r from-emerald-600 to-cyan-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.6)] transition-all"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Borrower
                   </Link>
                   <Link
-                    href="/sign-up/lender"
+                    href="/signup-lender"
                     className="px-6 py-3 text-lg font-medium text-white rounded-full bg-gradient-to-r from-emerald-600 to-cyan-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.6)] transition-all"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Lender
                   </Link>
                   <Link
-                    href="/sign-up/insurer"
+                    href="/signup-insurer"
                     className="px-6 py-3 text-lg font-medium text-white rounded-full bg-gradient-to-r from-emerald-600 to-cyan-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.6)] transition-all"
                     onClick={() => setIsMenuOpen(false)}
                   >
@@ -251,7 +258,7 @@ const Navbar = () => {
                   transition={{ delay: 0.4 }}
                 >
                   <Link
-                    href="/sign-in"
+                    href="/signin"
                     className="text-lg font-medium text-zinc-300 hover:text-white transition-all"
                     onClick={() => setIsMenuOpen(false)}
                   >
