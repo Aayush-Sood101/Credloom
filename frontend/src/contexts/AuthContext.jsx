@@ -67,7 +67,7 @@ export function AuthProvider({ children }) {
     initAuth();
   }, [logout]);
 
-  const login = async (username, password) => {
+  const login = useCallback(async (username, password) => {
     try {
       console.log('[AuthContext] Starting login for:', username);
       const response = await authAPI.login(username, password);
@@ -110,18 +110,18 @@ export function AuthProvider({ children }) {
       console.error('[AuthContext] Login error:', error);
       return { success: false, error: error.message };
     }
-  };
+  }, []);
 
-  const register = async (userData) => {
+  const register = useCallback(async (userData) => {
     try {
       const response = await authAPI.register(userData);
       return { success: true, data: response };
     } catch (error) {
       return { success: false, error: error.message };
     }
-  };
+  }, []);
 
-  const refreshTierStatus = async () => {
+  const refreshTierStatus = useCallback(async () => {
     try {
       const status = await authAPI.getTierStatus();
       setTierStatus(status);
@@ -129,33 +129,35 @@ export function AuthProvider({ children }) {
     } catch (error) {
       return { success: false, error: error.message };
     }
-  };
+  }, []);
 
-  const verifyTier2 = async (ensName) => {
+  const verifyTier2 = useCallback(async (ensName) => {
     if (!user) return { success: false, error: 'Not authenticated' };
     
     try {
       const response = await authAPI.verifyTier2(user.username, ensName);
       // Refresh tier status after verification
-      await refreshTierStatus();
+      const status = await authAPI.getTierStatus();
+      setTierStatus(status);
       return { success: true, data: response };
     } catch (error) {
       return { success: false, error: error.message };
     }
-  };
+  }, [user]);
 
-  const verifyTier3 = async (passportNumber) => {
+  const verifyTier3 = useCallback(async (passportNumber) => {
     if (!user) return { success: false, error: 'Not authenticated' };
     
     try {
       const response = await authAPI.verifyTier3(user.username, passportNumber);
       // Refresh tier status after verification
-      await refreshTierStatus();
+      const status = await authAPI.getTierStatus();
+      setTierStatus(status);
       return { success: true, data: response };
     } catch (error) {
       return { success: false, error: error.message };
     }
-  };
+  }, [user]);
 
   const value = {
     user,

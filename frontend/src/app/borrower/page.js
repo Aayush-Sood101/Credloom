@@ -29,7 +29,8 @@ export default function BorrowerDashboard() {
     if (user && !loading) {
       refreshTierStatus();
     }
-  }, [user, loading, refreshTierStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loading]);
 
   // Real loans data from API
   const [loansData, setLoansData] = useState({ loans: [], total: 0 });

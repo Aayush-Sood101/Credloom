@@ -5,14 +5,16 @@ import Link from "next/link";
 import { FiMenu, FiX, FiChevronDown } from "react-icons/fi";
 import { Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
   
-  // TODO: Replace with your actual auth state management (e.g., Context API, Zustand, Redux)
-  const isSignedIn = false; // This should come from your auth state
-  const userType = null; // This should come from your auth state (borrower/lender/insurer)
+  // Get auth state from AuthContext
+  const { user, role, logout } = useAuth();
+  const isSignedIn = !!user;
+  const userType = role;
 
   const getDashboardLink = () => {
     if (!isSignedIn) return "/signin";
@@ -30,8 +32,7 @@ const Navbar = () => {
   };
 
   const handleSignOut = () => {
-    // TODO: Implement your sign out logic here
-    console.log("Sign out clicked");
+    logout(); // This removes the access_token from localStorage and redirects to home
   };
 
   return (
