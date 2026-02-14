@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_API_URL || 'https://4048-128-185-112-57.ngrok-free.app';
+const BACKEND_URL = process.env.BACKEND_API_URL || 'http://localhost:5000';
 
 /**
  * API Proxy Route Handler
