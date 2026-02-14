@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { requestLoan, selectLoan } from '@/lib/api/borrower';
-import { getUserId } from '@/lib/api/auth';
+import { requestLoan, selectLoan, getInterestRate } from '@/lib/api/borrower';
+import { getUserId, getWallet } from '@/lib/api/auth';
 import { 
   Search, 
   Shield, 
@@ -23,6 +23,7 @@ export default function LoanMarketplace() {
   
   // Borrower data from API
   const [borrowerData, setBorrowerData] = useState(null);
+  const [interestRateData, setInterestRateData] = useState(null);
   const [apiError, setApiError] = useState(null);
 
   // Form state
@@ -57,12 +58,32 @@ export default function LoanMarketplace() {
       console.log('[Marketplace] Loan request response:', response);
       
       // Store borrower data from response
+      const borrowerWallet = response.borrower_wallet;
       setBorrowerData({
         borrower_id: response.borrower_id,
         creditScore: response.credit_score,
-        wallet: response.borrower_wallet,
+        wallet: borrowerWallet,
         requestedAmount: response.requested_amount
       });
+      
+      // Call interest rate backend to get personalized rate
+      try {
+        console.log('[Marketplace] Fetching interest rate for wallet:', borrowerWallet);
+        const rateData = await getInterestRate(borrowerWallet);
+        setInterestRateData({
+          interestRate: parseFloat(rateData.interestRate),
+          creditScore: rateData.creditScore,
+          tier: rateData.tier,
+          riskState: rateData.riskState,
+          availableCredit: rateData.availableCredit,
+          maxLoanAmount: rateData.maxLoanAmount
+        });
+        console.log('[Marketplace] Interest rate data:', rateData);
+      } catch (rateError) {
+        console.error('[Marketplace] Failed to fetch interest rate:', rateError);
+        // Don't fail the entire request if rate calculation fails
+        setInterestRateData(null);
+      }
       
       // Transform lenders data to match UI format
       const transformedLenders = response.lenders.map(lender => ({
@@ -242,6 +263,38 @@ export default function LoanMarketplace() {
                       <span className="text-gray-400">Principal Amount</span>
                       <span className="font-semibold">${loanAmount}</span>
                     </div>
+                    {interestRateData && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Interest Rate (APR)</span>
+                          <span className="font-semibold text-green-400">{interestRateData.interestRate}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Interest Amount</span>
+                          <span className="font-semibold text-yellow-400">
+                            ${(() => {
+                              const principal = parseFloat(loanAmount);
+                              const rateDecimal = interestRateData.interestRate / 100;
+                              const durationYears = selectedOption.duration / 365;
+                              const interest = principal * rateDecimal * durationYears;
+                              return interest.toFixed(2);
+                            })()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t border-zinc-700 pt-3">
+                          <span className="text-gray-300 font-semibold">Total Repayment</span>
+                          <span className="font-bold text-lg text-white">
+                            ${(() => {
+                              const principal = parseFloat(loanAmount);
+                              const rateDecimal = interestRateData.interestRate / 100;
+                              const durationYears = selectedOption.duration / 365;
+                              const interest = principal * rateDecimal * durationYears;
+                              return (principal + interest).toFixed(2);
+                            })()}
+                          </span>
+                        </div>
+                      </>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-gray-400">Loan Duration</span>
                       <span className="font-semibold">{selectedOption.duration} days</span>
@@ -301,10 +354,10 @@ export default function LoanMarketplace() {
           <p className="text-gray-400">Find the best loan offers based on your credit score</p>
         </div>
 
-        {/* Credit Score Info Banner */}
+        {/* Credit Score & Interest Rate Info Banner */}
         {borrowerData && (
           <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-6 mb-8">
-            <div className="flex items-center justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-blue-400" />
@@ -314,11 +367,56 @@ export default function LoanMarketplace() {
                   <p className="text-2xl font-bold text-blue-400">{borrowerData.creditScore}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-400">Wallet</p>
-                <p className="font-mono text-sm">{borrowerData.wallet ? `${borrowerData.wallet.slice(0, 6)}...${borrowerData.wallet.slice(-4)}` : 'Not connected'}</p>
+              
+              {interestRateData && (
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center">
+                    <Percent className="w-6 h-6 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">Your Interest Rate</p>
+                    <p className="text-2xl font-bold text-green-400">{interestRateData.interestRate}% APR</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Wallet</p>
+                  <p className="font-mono text-sm text-purple-400">{borrowerData.wallet ? `${borrowerData.wallet.slice(0, 6)}...${borrowerData.wallet.slice(-4)}` : 'Not connected'}</p>
+                </div>
               </div>
             </div>
+            
+            {interestRateData && (
+              <div className="mt-4 pt-4 border-t border-blue-500/20">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500">Risk State</p>
+                    <p className={`font-semibold capitalize ${
+                      interestRateData.riskState === 'healthy' ? 'text-green-400' :
+                      interestRateData.riskState === 'warning' ? 'text-yellow-400' :
+                      'text-red-400'
+                    }`}>{interestRateData.riskState}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Tier</p>
+                    <p className="font-semibold text-blue-400">Tier {interestRateData.tier}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Available Credit</p>
+                    <p className="font-semibold text-white">${interestRateData.availableCredit?.toLocaleString() || '0'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Max Loan Amount</p>
+                    <p className="font-semibold text-white">${interestRateData.maxLoanAmount?.toLocaleString() || '0'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
