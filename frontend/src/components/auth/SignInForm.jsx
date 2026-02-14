@@ -83,20 +83,23 @@ export default function SignInForm() {
     <div className="w-full max-w-md">
       {/* Header */}
       <div className="text-center mb-10">
-        <div className="flex items-center justify-center mb-4">
-          <Shield className="w-12 h-12 text-white" />
+        <div className="flex items-center justify-center mb-6">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full blur-xl opacity-20 animate-pulse"></div>
+            
+          </div>
         </div>
-        <h1 className="text-4xl font-bold mb-2">Welcome Back</h1>
-        <p className="text-gray-400">Sign in to your Credloom account</p>
+        <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">Welcome Back</h1>
+        <p className="text-gray-400 text-lg">Sign in to your Credloom account</p>
       </div>
 
       {/* Form Card */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
+      <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800/50 border border-zinc-800 rounded-2xl p-8 shadow-2xl backdrop-blur-sm">
         {/* API Error Message */}
         {apiError && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-            <p className="text-sm text-red-500 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" />
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl backdrop-blur-sm animate-in fade-in slide-in-from-top-2 duration-300">
+            <p className="text-sm text-red-400 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {apiError}
             </p>
           </div>
@@ -104,13 +107,15 @@ export default function SignInForm() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Username Field */}
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
+          <div className="group">
+            <label htmlFor="username" className="block text-sm font-semibold text-gray-300 mb-2">
               Username
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-500" />
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors">
+                <Mail className={`h-5 w-5 transition-colors ${
+                  errors.username ? 'text-red-400' : 'text-gray-500 group-focus-within:text-white'
+                }`} />
               </div>
               <input
                 type="text"
@@ -118,33 +123,37 @@ export default function SignInForm() {
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
-                className={`block w-full pl-10 pr-3 py-3 bg-black border ${
-                  errors.username ? 'border-red-500' : 'border-zinc-700'
-                } rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent`}
+                className={`block w-full pl-12 pr-4 py-3.5 bg-black/50 border-2 ${
+                  errors.username 
+                    ? 'border-red-500/50 focus:border-red-500' 
+                    : 'border-zinc-700 focus:border-white'
+                } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-white/10 transition-all duration-200`}
                 placeholder="your_username"
               />
             </div>
             {errors.username && (
-              <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
+              <p className="mt-2 text-sm text-red-400 flex items-center gap-1.5 animate-in slide-in-from-top-1 duration-200">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 {errors.username}
               </p>
             )}
           </div>
 
           {/* Password Field */}
-          <div>
+          <div className="group">
             <div className="flex items-center justify-between mb-2">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-300">
                 Password
               </label>
-              <Link href="/forgot-password" className="text-sm text-gray-400 hover:text-white transition-colors">
+              <Link href="/forgot-password" className="text-sm text-gray-400 hover:text-white transition-all duration-200 hover:underline">
                 Forgot password?
               </Link>
             </div>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-500" />
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors">
+                <Lock className={`h-5 w-5 transition-colors ${
+                  errors.password ? 'text-red-400' : 'text-gray-500 group-focus-within:text-white'
+                }`} />
               </div>
               <input
                 type="password"
@@ -152,15 +161,17 @@ export default function SignInForm() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className={`block w-full pl-10 pr-3 py-3 bg-black border ${
-                  errors.password ? 'border-red-500' : 'border-zinc-700'
-                } rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent`}
+                className={`block w-full pl-12 pr-4 py-3.5 bg-black/50 border-2 ${
+                  errors.password 
+                    ? 'border-red-500/50 focus:border-red-500' 
+                    : 'border-zinc-700 focus:border-white'
+                } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-white/10 transition-all duration-200`}
                 placeholder="••••••••"
               />
             </div>
             {errors.password && (
-              <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
+              <p className="mt-2 text-sm text-red-400 flex items-center gap-1.5 animate-in slide-in-from-top-1 duration-200">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 {errors.password}
               </p>
             )}
@@ -170,8 +181,9 @@ export default function SignInForm() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-white text-black py-3 rounded-lg font-semibold hover:bg-zinc-200 transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="group relative w-full bg-gradient-to-r from-white to-gray-100 text-black py-3.5 rounded-xl font-bold hover:shadow-lg hover:shadow-white/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden"
           >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
             {isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
@@ -180,48 +192,41 @@ export default function SignInForm() {
             ) : (
               <>
                 Sign In
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </>
             )}
           </button>
         </form>
 
         {/* Divider */}
-        <div className="mt-6 flex items-center gap-4">
-          <div className="flex-1 h-px bg-zinc-700"></div>
-          <span className="text-sm text-gray-500">New to Credloom?</span>
-          <div className="flex-1 h-px bg-zinc-700"></div>
+        <div className="mt-8 flex items-center gap-4">
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent"></div>
+          <span className="text-sm text-gray-500 font-medium">New to Credloom?</span>
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent"></div>
         </div>
 
         {/* Sign up links */}
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 space-y-2.5">
           <Link
             href="/signup-borrower"
-            className="block w-full text-center py-2.5 border border-zinc-700 rounded-lg text-gray-300 hover:bg-zinc-800 transition-colors duration-200"
+            className="block w-full text-center py-3 border-2 border-zinc-700 rounded-xl text-gray-300 hover:bg-zinc-800 hover:border-zinc-600 transition-all duration-200 font-medium hover:scale-[1.01] active:scale-[0.99]"
           >
             Sign up as Borrower
           </Link>
           <Link
             href="/signup-lender"
-            className="block w-full text-center py-2.5 border border-zinc-700 rounded-lg text-gray-300 hover:bg-zinc-800 transition-colors duration-200"
+            className="block w-full text-center py-3 border-2 border-zinc-700 rounded-xl text-gray-300 hover:bg-zinc-800 hover:border-zinc-600 transition-all duration-200 font-medium hover:scale-[1.01] active:scale-[0.99]"
           >
             Sign up as Lender
           </Link>
           <Link
             href="/signup-insurer"
-            className="block w-full text-center py-2.5 border border-zinc-700 rounded-lg text-gray-300 hover:bg-zinc-800 transition-colors duration-200"
+            className="block w-full text-center py-3 border-2 border-zinc-700 rounded-xl text-gray-300 hover:bg-zinc-800 hover:border-zinc-600 transition-all duration-200 font-medium hover:scale-[1.01] active:scale-[0.99]"
           >
             Sign up as Insurer
           </Link>
         </div>
       </div>
-
-      {/* Back to Home Link */}
-      <p className="text-center mt-6 text-gray-400">
-        <Link href="/" className="text-white font-semibold hover:underline">
-          ← Back to Home
-        </Link>
-      </p>
     </div>
   );
 }
