@@ -6,12 +6,28 @@ from app.blockchain.adapter import (
     is_borrower_flagged,
     get_offer_amount,
     create_offer_custodial,
-    get_balance_wei
+    get_balance_wei,
+    # We need w3 to convert addresses
+    w3 
 )
 from app.blockchain.contracts import liquidity_pool, loan_escrow
 from app.database import create_loan_proposal, get_active_offers, finalize_loan_acceptance
 
 router = APIRouter()
+
+# ---------------------------------------------------------
+# HELPER: FORCE CHECKSUM ADDRESS
+# ---------------------------------------------------------
+def to_checksum(address: str) -> str:
+    """
+    Converts any address (lowercase or mixed) to a valid EIP-55 Checksum Address.
+    Fixes the 'Web3.py only accepts checksum addresses' error.
+    """
+    try:
+        return w3.to_checksum_address(address)
+    except Exception:
+        # If it's not a valid address at all, let Web3 throw the error later
+        return address
 
 # ---------------------------------------------------------
 # 1. LENDER: Create Offer
@@ -25,9 +41,12 @@ class CreateOfferRequest(BaseModel):
 @router.post("/lender/create-offer")
 def create_offer_endpoint(payload: CreateOfferRequest):
     try:
+        # FIX: Convert lender address
+        clean_lender = to_checksum(payload.lenderAddress)
+        
         duration_seconds = payload.durationDays * 86400
         result = create_offer_custodial(
-            lender_address=payload.lenderAddress, 
+            lender_address=clean_lender, 
             duration=duration_seconds,
             min_credit_score=payload.minCreditScore,
             amount_eth=payload.amountEth
@@ -35,7 +54,7 @@ def create_offer_endpoint(payload: CreateOfferRequest):
         # Supabase update
         create_loan_proposal(
             offer_id=result["offerId"],
-            lender_wallet=payload.lenderAddress,
+            lender_wallet=clean_lender,
             amount_eth=payload.amountEth,
             duration_days=payload.durationDays,
             min_credit_score=payload.minCreditScore
@@ -77,6 +96,10 @@ def accept_offer_api(payload: dict):
     offer_id = payload["offerId"]
     interest_rate = payload["interestRate"]
     
+    # FIX: Convert addresses
+    clean_borrower = to_checksum(payload["borrower"])
+    clean_insurer = to_checksum(payload["insurer"])
+
     try:
         # 1. Fetch Principal from Chain (Source of Truth)
         principal_wei = get_offer_amount(offer_id)
@@ -86,21 +109,21 @@ def accept_offer_api(payload: dict):
         # 2. Blockchain Execution
         blockchain_result = accept_offer(
             offer_id=offer_id,
-            borrower=payload["borrower"],
+            borrower=clean_borrower,
             interest=interest_wei,
             is_insured=payload["isInsured"],
-            insurer=payload["insurer"]
+            insurer=clean_insurer
         )
         
-        # 3. Database Finalization (Calculates all missing fields internally)
+        # 3. Database Finalization
         db_success = finalize_loan_acceptance(
             chain_offer_id=offer_id,
             blockchain_loan_id=blockchain_result["blockchainLoanId"],
-            borrower_wallet=payload["borrower"],
+            borrower_wallet=clean_borrower,
             interest_rate=interest_rate,
             tx_hash=blockchain_result["txHash"],
             is_insured=payload["isInsured"],
-            insurer_wallet=payload["insurer"]
+            insurer_wallet=clean_insurer
         )
 
         return {
@@ -124,19 +147,23 @@ def default_loan(loan_id: int):
 
 @router.get("/borrower/{address}/flagged")
 def borrower_flagged(address: str):
-    return {"flagged": is_borrower_flagged(address)}
+    # FIX: Convert address
+    clean_addr = to_checksum(address)
+    return {"flagged": is_borrower_flagged(clean_addr)}
 
 # ---------------------------------------------------------
-# 5. BALANCE & SYSTEM CHECKS (For Frontend Watchers)
+# 5. BALANCE & SYSTEM CHECKS
 # ---------------------------------------------------------
 @router.get("/balance/{address}")
 def get_address_balance(address: str):
     """Returns the ETH balance of any address."""
     try:
-        wei = get_balance_wei(address)
+        # FIX: Convert address
+        clean_addr = to_checksum(address)
+        wei = get_balance_wei(clean_addr)
         eth = float(wei) / 10**18
         return {
-            "address": address,
+            "address": clean_addr,
             "balanceWei": wei,
             "balanceEth": eth
         }
