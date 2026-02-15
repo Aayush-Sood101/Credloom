@@ -5,12 +5,17 @@ from app.blockchain.adapter import (
     trigger_default,
     is_borrower_flagged,
     get_offer_amount,
-    create_offer_custodial
+    create_offer_custodial,
+    get_balance_wei
 )
+from app.blockchain.contracts import liquidity_pool, loan_escrow
 from app.database import create_loan_proposal, get_active_offers, finalize_loan_acceptance
 
 router = APIRouter()
 
+# ---------------------------------------------------------
+# 1. LENDER: Create Offer
+# ---------------------------------------------------------
 class CreateOfferRequest(BaseModel):
     lenderAddress: str
     amountEth: float
@@ -39,6 +44,9 @@ def create_offer_endpoint(payload: CreateOfferRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ---------------------------------------------------------
+# 2. MARKETPLACE: Get Offers
+# ---------------------------------------------------------
 @router.get("/market/offers")
 def get_open_offers_api():
     try:
@@ -56,6 +64,9 @@ def get_open_offers_api():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ---------------------------------------------------------
+# 3. BORROWER: Accept Offer
+# ---------------------------------------------------------
 @router.post("/loan/accept")
 def accept_offer_api(payload: dict):
     required = ["offerId", "borrower", "interestRate", "isInsured", "insurer"]
@@ -67,20 +78,21 @@ def accept_offer_api(payload: dict):
     interest_rate = payload["interestRate"]
     
     try:
-        # 1. Fetch Principal from Chain
+        # 1. Fetch Principal from Chain (Source of Truth)
         principal_wei = get_offer_amount(offer_id)
+        # Calculate interest in Wei for the Blockchain
         interest_wei = int(principal_wei * interest_rate / 100)
         
-        # 2. Blockchain Execution (Fixed keyword argument from 'interest_wei' to 'interest')
+        # 2. Blockchain Execution
         blockchain_result = accept_offer(
             offer_id=offer_id,
             borrower=payload["borrower"],
-            interest=interest_wei, # Matches adapter.py definition
+            interest=interest_wei,
             is_insured=payload["isInsured"],
             insurer=payload["insurer"]
         )
         
-        # 3. Database Finalization (Sync to loans table)
+        # 3. Database Finalization (Calculates all missing fields internally)
         db_success = finalize_loan_acceptance(
             chain_offer_id=offer_id,
             blockchain_loan_id=blockchain_result["blockchainLoanId"],
@@ -100,6 +112,9 @@ def accept_offer_api(payload: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ---------------------------------------------------------
+# 4. UTILITIES (Default, Flag Check)
+# ---------------------------------------------------------
 @router.post("/loan/default/{loan_id}")
 def default_loan(loan_id: int):
     try:
@@ -112,20 +127,14 @@ def borrower_flagged(address: str):
     return {"flagged": is_borrower_flagged(address)}
 
 # ---------------------------------------------------------
-# 5. BALANCE & SYSTEM CHECKS
+# 5. BALANCE & SYSTEM CHECKS (For Frontend Watchers)
 # ---------------------------------------------------------
-
-from app.blockchain.adapter import get_balance_wei
-from app.blockchain.contracts import liquidity_pool, loan_escrow
-
 @router.get("/balance/{address}")
 def get_address_balance(address: str):
-    """
-    Returns the ETH balance of any address (User or Contract).
-    """
+    """Returns the ETH balance of any address."""
     try:
         wei = get_balance_wei(address)
-        eth = float(wei) / 10**18  # Convert Wei to ETH for readability
+        eth = float(wei) / 10**18
         return {
             "address": address,
             "balanceWei": wei,
@@ -136,9 +145,7 @@ def get_address_balance(address: str):
 
 @router.get("/system/contracts")
 def get_contract_addresses():
-    """
-    Returns the deployed addresses of the system contracts.
-    """
+    """Returns deployed system contract addresses."""
     return {
         "LiquidityPool": liquidity_pool.address,
         "LoanEscrow": loan_escrow.address

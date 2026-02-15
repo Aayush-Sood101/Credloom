@@ -84,74 +84,86 @@ def finalize_loan_acceptance(
     insurer_wallet: str
 ):
     """
-    Handles all DB updates once a loan is accepted on the blockchain.
+    GENERATES and SAVES all the missing loan fields.
+    Calculates interest amounts, premiums, and timestamps before saving.
     """
     try:
-        # 1. Fetch the Offer details
+        # 1. Fetch the Offer details (Source of Truth for Principal & Duration)
         offer_res = supabase.table("lender_loan_options").select("*").eq("chain_offer_id", chain_offer_id).single().execute()
         if not offer_res.data:
             print(f"❌ Offer {chain_offer_id} not found in DB")
             return False
         
         offer = offer_res.data
-        principal = offer['amount_available']
-        duration = offer['duration_days']
+        principal = float(offer['amount_available'])
+        duration = int(offer['duration_days'])
         lender_wallet = offer['lender_wallet']
         lender_id = offer['lender_id']
         option_id = offer['id']
 
-        # 2. Get Borrower ID
+        # 2. Update Borrower Stats
         borrower_id = get_user_id_by_wallet(borrower_wallet)
-
-        # 3. Update Borrower Profile (Stats) safely using Python logic
         prof_res = supabase.table("profiles").select("*").eq("wallet", borrower_wallet).execute()
         
         if prof_res.data:
-            current_stats = prof_res.data[0]
-            # Calculate new stats
-            new_tx_count = (current_stats.get('total_transactions') or 0) + 1
-            new_loan_count = (current_stats.get('num_previous_loans') or 0) + 1
-            new_total_eth = (current_stats.get('total_previous_loans_eth') or 0.0) + principal
-
+            current = prof_res.data[0]
             supabase.table("profiles").update({
-                "total_transactions": new_tx_count,
-                "num_previous_loans": new_loan_count,
-                "total_previous_loans_eth": new_total_eth,
+                "total_transactions": (current.get('total_transactions') or 0) + 1,
+                "num_previous_loans": (current.get('num_previous_loans') or 0) + 1,
+                "total_previous_loans_eth": (current.get('total_previous_loans_eth') or 0.0) + principal,
                 "updated_at": datetime.now().isoformat()
             }).eq("wallet", borrower_wallet).execute()
-        else:
-            print(f"⚠️ Borrower profile not found for {borrower_wallet}, skipping stats update.")
 
-        # 4. Create the Loan Record
+        # ---------------------------------------------------------
+        # 3. CALCULATE THE MISSING FIELDS
+        # ---------------------------------------------------------
+        
+        # TIME
         start_date = datetime.now()
         due_date = start_date + timedelta(days=duration)
         
+        # MATH
+        interest_amount = (principal * interest_rate) / 100.0
+        apr_bps = int(interest_rate * 100) # 10.5% -> 1050 bps
+        
+        # INSURANCE (Default 1% / 100bps if insured)
+        premium_bps = 100 if is_insured else 0 
+        insurance_amount = (principal * premium_bps) / 10000.0 if is_insured else 0
+
         loan_data = {
-            "loan_id": blockchain_loan_id,
-            "borrower_wallet": borrower_wallet,
-            "lender_wallet": lender_wallet,
-            "principal": principal,
-            "interest_amount": (principal * interest_rate / 100),
-            "duration_days": duration,
-            "status": "active",
-            "apr_bps": int(interest_rate * 100),
-            "start_ts": start_date.isoformat(),
-            "due_ts": due_date.isoformat(),
-            "tx_create_hash": tx_hash,
+            "loan_id": str(blockchain_loan_id),   # From Blockchain
+            "borrower_wallet": borrower_wallet,   # From API
+            "lender_wallet": lender_wallet,       # From DB Lookup
             "borrower_id": borrower_id,
             "lender_id": lender_id,
-            "selected_option_id": option_id
+            "selected_option_id": option_id,
+            
+            # Financials
+            "principal": principal,
+            "interest_amount": interest_amount,           # <--- Calculated Here
+            "insurance_premium_amount": insurance_amount, # <--- Calculated Here
+            "apr_bps": apr_bps,
+            "premium_bps": premium_bps,
+            
+            # Status & Time
+            "status": "active",
+            "start_ts": start_date.isoformat(),   # <--- Generated Here
+            "due_ts": due_date.isoformat(),       # <--- Calculated Here
+            
+            # Blockchain Proof
+            "tx_create_hash": tx_hash,            # <--- Passed from Adapter
         }
         
         if is_insured:
             loan_data["insurer_wallet"] = insurer_wallet
 
+        # 4. Insert into Loans Table
         supabase.table("loans").insert(loan_data).execute()
 
-        # 5. Mark Offer as Inactive
+        # 5. Close the Offer
         supabase.table("lender_loan_options").update({"active": False}).eq("chain_offer_id", chain_offer_id).execute()
         
-        print(f"✅ Loan {blockchain_loan_id} successfully finalized in DB")
+        print(f"✅ Loan {blockchain_loan_id} finalized with full details in DB")
         return True
 
     except Exception as e:
