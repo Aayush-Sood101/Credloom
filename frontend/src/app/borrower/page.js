@@ -214,8 +214,8 @@ export default function BorrowerDashboard() {
                     {tierStatus.tier === 2 && '⭐ Unlock Premium Benefits with Tier 3!'}
                   </h3>
                   <p className="text-gray-300 text-sm mb-3">
-                    {tierStatus.tier === 1 && 'Verify your ENS name to reduce interest rates by up to 2% and increase loan limits to $10,000.'}
-                    {tierStatus.tier === 2 && 'Verify your Gitcoin Passport to access the best rates (up to 4% reduction) and loan limits up to $50,000.'}
+                    {tierStatus.tier === 1 && 'Verify your ENS name to reduce interest rates by up to 2% and increase loan limits to 10,000 ETH.'}
+                    {tierStatus.tier === 2 && 'Verify your Gitcoin Passport to access the best rates (up to 4% reduction) and loan limits up to 50,000 ETH.'}
                   </p>
                   <div className="flex flex-wrap gap-2 text-sm">
                     {tierStatus.tier === 1 && (
@@ -344,7 +344,7 @@ export default function BorrowerDashboard() {
                     <p className="font-semibold text-blue-400 mb-2">Tier 1: Basic</p>
                     <ul className="text-xs text-gray-400 space-y-1">
                       <li>• Standard rates</li>
-                      <li>• Up to $5,000</li>
+                      <li>• Up to 5,000 ETH</li>
                       <li>• Basic access</li>
                     </ul>
                   </div>
@@ -353,7 +353,7 @@ export default function BorrowerDashboard() {
                     <p className="font-semibold text-purple-400 mb-2">Tier 2: ENS</p>
                     <ul className="text-xs text-gray-400 space-y-1">
                       <li>• -2% interest</li>
-                      <li>• Up to $10,000</li>
+                      <li>• Up to 10,000 ETH</li>
                       <li>• Priority matching</li>
                     </ul>
                   </div>
@@ -362,7 +362,7 @@ export default function BorrowerDashboard() {
                     <p className="font-semibold text-green-400 mb-2">Tier 3: Passport</p>
                     <ul className="text-xs text-gray-400 space-y-1">
                       <li>• -4% interest</li>
-                      <li>• Up to $50,000</li>
+                      <li>• Up to 50,000 ETH</li>
                       <li>• Premium access</li>
                     </ul>
                   </div>
@@ -391,7 +391,7 @@ export default function BorrowerDashboard() {
                     <p className="text-xs text-purple-300 mb-1">✨ Benefits:</p>
                     <ul className="text-xs text-gray-400 space-y-1">
                       <li>• Lower interest rates (up to 2% reduction)</li>
-                      <li>• Higher loan limits (up to $10,000)</li>
+                      <li>• Higher loan limits (up to 10,000 ETH)</li>
                       <li>• Priority loan matching</li>
                     </ul>
                   </div>
@@ -426,7 +426,7 @@ export default function BorrowerDashboard() {
                     <p className="text-xs text-green-300 mb-1">🌟 Premium Benefits:</p>
                     <ul className="text-xs text-gray-400 space-y-1">
                       <li>• Best interest rates (up to 4% reduction)</li>
-                      <li>• Maximum loan limits (up to $50,000)</li>
+                      <li>• Maximum loan limits (up to 50,000 ETH)</li>
                       <li>• Premium lender access</li>
                       <li>• Flexible repayment terms</li>
                     </ul>
@@ -508,7 +508,7 @@ export default function BorrowerDashboard() {
                 <div>
                   <h3 className="text-lg font-semibold text-green-400 mb-1">You&apos;re Eligible to Borrow!</h3>
                   <p className="text-gray-300">
-                    Maximum borrowable amount: <span className="font-bold">${dashboardData.eligibility.maxBorrowable} USDC</span>
+                    Maximum borrowable amount: <span className="font-bold">Ξ{dashboardData.eligibility.maxBorrowable} ETH</span>
                   </p>
                 </div>
                 <Link

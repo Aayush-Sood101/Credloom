@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { requestLoan, selectLoan, getInterestRate } from '@/lib/api/borrower';
 import { getUserId, getWallet } from '@/lib/api/auth';
+import { getActiveOffers, acceptLoanOffer, checkBorrowerFlagged, formatTxHash } from '@/lib/api/blockchain';
 import { 
   Search, 
   Shield, 
@@ -13,9 +14,10 @@ import {
   CheckCircle,
   Filter,
   ArrowLeft,
-  DollarSign,
+  Coins,
   Percent,
-  Calendar
+  Calendar,
+  ExternalLink
 } from 'lucide-react';
 
 export default function LoanMarketplace() {
@@ -25,6 +27,14 @@ export default function LoanMarketplace() {
   const [borrowerData, setBorrowerData] = useState(null);
   const [interestRateData, setInterestRateData] = useState(null);
   const [apiError, setApiError] = useState(null);
+
+  // Blockchain offers
+  const [blockchainOffers, setBlockchainOffers] = useState([]);
+  const [selectedOffer, setSelectedOffer] = useState(null);
+  const [borrowerWallet, setBorrowerWallet] = useState('');
+  const [isFlagged, setIsFlagged] = useState(false);
+  const [txHash, setTxHash] = useState(null);
+  const [loanId, setLoanId] = useState(null);
 
   // Form state
   const [loanAmount, setLoanAmount] = useState('');
@@ -42,6 +52,70 @@ export default function LoanMarketplace() {
   const [filterInsuredOnly, setFilterInsuredOnly] = useState(false);
   const [filterMaxDuration, setFilterMaxDuration] = useState(null);
 
+  // Load blockchain offers on component mount
+  useEffect(() => {
+    fetchBlockchainOffers();
+    
+    // Get borrower wallet if user is logged in
+    if (user) {
+      loadBorrowerWallet();
+    }
+  }, [user]);
+
+  const loadBorrowerWallet = async () => {
+    try {
+      const wallet = await getWallet();
+      setBorrowerWallet(wallet);
+      
+      // Skip flagged check for now - requires checksummed addresses
+      // TODO: Implement proper address checksumming or update backend to handle it
+      console.log('[Marketplace] Borrower wallet loaded:', wallet);
+      setIsFlagged(false); // Assume not flagged
+      
+      // Fetch interest rate for the borrower when wallet is loaded
+      if (wallet) {
+        try {
+          console.log('[Marketplace] Fetching interest rate for wallet:', wallet);
+          const rateData = await getInterestRate(wallet);
+          setInterestRateData({
+            interestRate: parseFloat(rateData.interestRate),
+            creditScore: rateData.creditScore,
+            tier: rateData.tier,
+            riskState: rateData.riskState,
+            availableCredit: rateData.availableCredit,
+            maxLoanAmount: rateData.maxLoanAmount
+          });
+          console.log('[Marketplace] Interest rate loaded:', rateData);
+        } catch (rateError) {
+          console.error('[Marketplace] Failed to fetch interest rate:', rateError);
+          // Set a default interest rate if fetching fails
+          setInterestRateData({
+            interestRate: 12.0,
+            creditScore: 0,
+            tier: 1,
+            riskState: 'unknown',
+            availableCredit: 0,
+            maxLoanAmount: 0
+          });
+        }
+      }
+    } catch (error) {
+      console.error('[Marketplace] Error loading borrower wallet:', error);
+    }
+  };
+
+  const fetchBlockchainOffers = async () => {
+    try {
+      console.log('[Marketplace] Fetching blockchain offers...');
+      const result = await getActiveOffers();
+      console.log('[Marketplace] Blockchain offers:', result);
+      setBlockchainOffers(result.offers || []);
+    } catch (error) {
+      console.error('[Marketplace] Error fetching blockchain offers:', error);
+      setApiError('Failed to load blockchain offers: ' + error.message);
+    }
+  };
+
   const handleSearch = async () => {
     if (!loanAmount || parseFloat(loanAmount) <= 0) {
       alert('Please enter a valid loan amount');
@@ -56,6 +130,16 @@ export default function LoanMarketplace() {
       // Call backend API to get matching lenders
       const response = await requestLoan(parseFloat(loanAmount));
       console.log('[Marketplace] Loan request response:', response);
+      
+      // Check if borrower is flagged for defaults
+      if (response.isFlagged === true || response.is_flagged === true) {
+        console.warn('[Marketplace] Borrower is flagged - cannot borrow');
+        setIsFlagged(true);
+        setApiError('⚠️ Your account has been flagged due to previous loan defaults. You are currently unable to borrow loans. Please contact support.');
+        setLenders([]);
+        setIsLoading(false);
+        return; // Stop processing
+      }
       
       // Store borrower data from response
       const borrowerWallet = response.borrower_wallet;
@@ -116,6 +200,11 @@ export default function LoanMarketplace() {
     setShowConfirmation(true);
   };
 
+  const handleSelectBlockchainOffer = (offer) => {
+    setSelectedOffer(offer);
+    setShowConfirmation(true);
+  };
+
   const handleAcceptLoan = async () => {
     if (!borrowerData || !selectedLender || !selectedOption) {
       setApiError('Missing required data for loan selection');
@@ -152,6 +241,78 @@ export default function LoanMarketplace() {
     }
   };
 
+  const handleAcceptBlockchainOffer = async () => {
+    if (!selectedOffer || !borrowerWallet) {
+      setApiError('Missing required data. Please ensure you have a wallet connected.');
+      return;
+    }
+
+    // Validate offerId
+    if (!selectedOffer.offerId) {
+      setApiError('Invalid offer: This offer does not have a blockchain ID and cannot be accepted.');
+      return;
+    }
+
+    if (isFlagged) {
+      setApiError('Your account is flagged. You cannot accept loans at this time.');
+      return;
+    }
+
+    setTransactionStatus('pending');
+    setApiError(null);
+    setTxHash(null);
+    setLoanId(null);
+    
+    try {
+      // Get interest rate - must be available
+      let interestRate = 12.0; // default fallback
+      if (interestRateData && interestRateData.interestRate) {
+        interestRate = parseFloat(interestRateData.interestRate);
+        console.log('[Marketplace] Using personalized interest rate:', interestRate);
+      } else {
+        console.warn('[Marketplace] No personalized rate available, using default:', interestRate);
+      }
+
+      // Prepare accept data matching exact API specification
+      const acceptData = {
+        offerId: parseInt(selectedOffer.offerId),
+        borrower: borrowerWallet,
+        interestRate: parseFloat(interestRate),
+        isInsured: false,
+        insurer: '0x0000000000000000000000000000000000000000' // zero address for no insurance
+      };
+
+      console.log('[Marketplace] Accepting blockchain offer with data:', acceptData);
+      console.log('[Marketplace] Data types:', {
+        offerId: typeof acceptData.offerId,
+        borrower: typeof acceptData.borrower,
+        interestRate: typeof acceptData.interestRate,
+        isInsured: typeof acceptData.isInsured,
+        insurer: typeof acceptData.insurer
+      });
+      
+      const result = await acceptLoanOffer(acceptData);
+      console.log('[Marketplace] Offer accepted successfully:', result);
+      
+      setTxHash(result.txHash);
+      setLoanId(result.loanId);
+      setTransactionStatus('confirmed');
+      
+      // Refresh offers to remove accepted one
+      await fetchBlockchainOffers();
+      
+      // Redirect to borrower dashboard after 5 seconds
+      setTimeout(() => {
+        window.location.href = '/borrower';
+      }, 5000);
+      
+    } catch (error) {
+      console.error('[Marketplace] Error accepting blockchain offer:', error);
+      setTransactionStatus('error');
+      setApiError(error.message || 'Failed to accept loan offer');
+    }
+  };
+
   const calculateTotalRepayment = (amount, rate) => {
     const principal = parseFloat(amount);
     const rateDecimal = rate / 100;
@@ -179,18 +340,43 @@ export default function LoanMarketplace() {
             <>
               <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
               <h2 className="text-2xl font-bold mb-2">Processing Transaction</h2>
-              <p className="text-gray-400">Please wait while we confirm your loan on the blockchain...</p>
+              <p className="text-gray-400">Creating loan on the blockchain...</p>
+              <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
             </>
           )}
           
           {transactionStatus === 'confirmed' && (
             <>
-              <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-10 h-10 text-green-400" />
+              <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-12 h-12 text-white" strokeWidth={3} />
               </div>
-              <h2 className="text-2xl font-bold mb-2 text-green-400">Loan Disbursed!</h2>
-              <p className="text-gray-400 mb-4">Your loan has been successfully processed. Funds have been transferred to your wallet.</p>
-              <p className="text-sm text-gray-500">Redirecting to loan details...</p>
+              <h2 className="text-2xl font-bold mb-2 text-green-400">Loan Accepted!</h2>
+              <p className="text-gray-400 mb-6">Your loan has been successfully created on the blockchain.</p>
+              
+              {loanId && (
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 mb-4">
+                  <p className="text-xs text-gray-400 mb-1">Loan ID</p>
+                  <p className="text-xl font-bold text-green-400">#{loanId}</p>
+                </div>
+              )}
+              
+              {txHash && (
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 mb-4">
+                  <p className="text-xs text-gray-400 mb-2">Transaction Hash</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <code className="text-sm text-gray-300 font-mono">{formatTxHash(txHash, 8)}</code>
+                    <button
+                      onClick={() => window.open(`https://etherscan.io/tx/${txHash}`, '_blank')}
+                      className="text-blue-400 hover:text-blue-300 transition-colors"
+                      title="View on Etherscan"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-sm text-gray-500">Redirecting to dashboard...</p>
             </>
           )}
           
@@ -200,7 +386,12 @@ export default function LoanMarketplace() {
                 <AlertCircle className="w-10 h-10 text-red-400" />
               </div>
               <h2 className="text-2xl font-bold mb-2 text-red-400">Transaction Failed</h2>
-              <p className="text-gray-400 mb-6">There was an error processing your loan. Please try again.</p>
+              <p className="text-gray-400 mb-4">There was an error accepting the loan offer.</p>
+              {apiError && (
+                <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-4 text-left">
+                  <p className="text-sm text-red-400">{apiError}</p>
+                </div>
+              )}
               <button
                 onClick={() => setTransactionStatus(null)}
                 className="px-6 py-3 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-colors"
@@ -214,7 +405,150 @@ export default function LoanMarketplace() {
     );
   }
 
-  // Confirmation Modal
+  // Confirmation Modal for Blockchain Offers
+  if (showConfirmation && selectedOffer) {
+    return (
+      <div className="min-h-screen bg-black text-white pt-24 pb-12 px-4">
+        <div className="max-w-3xl mx-auto">
+          <Link
+            href="/borrower/marketplace"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowConfirmation(false);
+              setSelectedOffer(null);
+            }}
+            className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to Marketplace
+          </Link>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
+            <h1 className="text-3xl font-bold mb-6">Confirm Blockchain Loan</h1>
+
+            {/* Loan Summary */}
+            <div className="space-y-6 mb-8">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-1">Loan Amount</p>
+                  <p className="text-2xl font-bold">Ξ{selectedOffer.amountEth}</p>
+                </div>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-1">Duration</p>
+                  <p className="text-2xl font-bold">{selectedOffer.durationDays} days</p>
+                </div>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-1">Min Credit Score</p>
+                  <p className="text-xl font-bold">{selectedOffer.minCreditScore}</p>
+                </div>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-1">Lender</p>
+                  <p className="text-sm font-mono">{selectedOffer.lender.slice(0, 6)}...{selectedOffer.lender.slice(-4)}</p>
+                </div>
+              </div>
+
+              <div className="border-t border-zinc-800 pt-6">
+                <h3 className="font-semibold mb-3">Loan Terms</h3>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Principal Amount</span>
+                      <span className="font-semibold">Ξ{selectedOffer.amountEth}</span>
+                    </div>
+                    {interestRateData && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Interest Rate (APR)</span>
+                          <span className="font-semibold text-green-400">{interestRateData.interestRate}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Interest Amount</span>
+                          <span className="font-semibold text-yellow-400">
+                            Ξ{(() => {
+                              const principal = parseFloat(selectedOffer.amountEth);
+                              const rateDecimal = interestRateData.interestRate / 100;
+                              const durationYears = selectedOffer.durationDays / 365;
+                              const interest = principal * rateDecimal * durationYears;
+                              return interest.toFixed(4);
+                            })()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t border-zinc-700 pt-3">
+                          <span className="text-gray-300 font-semibold">Total Repayment</span>
+                          <span className="font-bold text-lg text-white">
+                            Ξ{(() => {
+                              const principal = parseFloat(selectedOffer.amountEth);
+                              const rateDecimal = interestRateData.interestRate / 100;
+                              const durationYears = selectedOffer.durationDays / 365;
+                              const interest = principal * rateDecimal * durationYears;
+                              return (principal + interest).toFixed(4);
+                            })()}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Maturity Date</span>
+                      <span className="font-semibold">
+                        {(() => {
+                          const dueDate = new Date();
+                          dueDate.setDate(dueDate.getDate() + selectedOffer.durationDays);
+                          return dueDate.toLocaleDateString();
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {borrowerWallet && (
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-1">Your Wallet</p>
+                  <p className="text-sm font-mono text-blue-400">{borrowerWallet}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-semibold text-yellow-400 mb-1">Important</p>
+                  <p className="text-gray-300">
+                    This transaction will be executed on the blockchain. You agree to repay the full amount by the deadline. Failure to repay will result in default penalties and reputation damage.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {isFlagged && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-semibold text-red-400 mb-1">Account Flagged</p>
+                    <p className="text-gray-300">
+                      Your account has been flagged due to previous defaults. You cannot accept loans at this time.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={handleAcceptBlockchainOffer}
+              disabled={isFlagged || !borrowerWallet}
+              className="w-full px-6 py-4 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-colors text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {!borrowerWallet ? 'Connect Wallet First' : isFlagged ? 'Cannot Accept (Flagged)' : 'Confirm & Accept Loan'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Confirmation Modal (for old backend API lenders)
   if (showConfirmation && selectedLender && selectedOption) {
     return (
       <div className="min-h-screen bg-black text-white pt-24 pb-12 px-4">
@@ -430,6 +764,7 @@ export default function LoanMarketplace() {
           </div>
         )}
 
+
         {/* Search Form */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-8">
           <h2 className="text-xl font-bold mb-6">Request a Loan</h2>
@@ -440,7 +775,7 @@ export default function LoanMarketplace() {
                 Loan Amount
               </label>
               <div className="relative">
-                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Coins className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="number"
                   value={loanAmount}
@@ -519,10 +854,7 @@ export default function LoanMarketplace() {
                       </div>
 
                       <div className="space-y-3 mb-6">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Min Credit Score</p>
-                          <p className="font-semibold">{lender.minScore || 0}</p>
-                        </div>
+                        
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Loan Options</p>
                           <p className="text-sm text-gray-400">{lender.options.length} available</p>

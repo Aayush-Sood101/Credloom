@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react';
+import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft,
   TrendingUp,
-  DollarSign,
+  Coins,
   Clock,
   Shield,
   User,
@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function LoanTracking({ params }) {
-  const { loanId } = params;
+  const { loanId } = use(params);
 
   // Mock loan data - TODO: Replace with actual API call
   const [loanData, setLoanData] = useState({
@@ -84,21 +84,21 @@ export default function LoanTracking({ params }) {
       {
         date: '2026-02-01',
         event: 'First Payment',
-        description: '$500 received',
+        description: 'Ξ500 received',
         icon: 'payment',
         completed: true
       },
       {
         date: '2026-02-10',
         event: 'Second Payment',
-        description: '$300 received',
+        description: 'Ξ300 received',
         icon: 'payment',
         completed: true
       },
       {
         date: '2026-03-16',
         event: 'Final Payment Due',
-        description: '$1400 remaining',
+        description: 'Ξ1400 remaining',
         icon: 'calendar',
         completed: false
       }
@@ -412,7 +412,7 @@ export default function LoanTracking({ params }) {
             <div className="space-y-4">
               <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-green-400" />
+                  <Coins className="w-4 h-4 text-green-400" />
                   <p className="text-xs text-gray-500">Earned So Far</p>
                 </div>
                 <p className="text-2xl font-bold text-green-400">${loanData.earnings.earnedSoFar}</p>

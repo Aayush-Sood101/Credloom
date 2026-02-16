@@ -7,8 +7,10 @@ import {
   AlertCircle,
   CheckCircle,
   Calendar,
-  DollarSign
+  Coins,
+  ExternalLink
 } from 'lucide-react';
+import { createLoanOffer, isValidEthAddress, formatTxHash } from '@/lib/api/blockchain';
 
 export default function EscrowFunding() {
   const [formData, setFormData] = useState({
@@ -19,8 +21,11 @@ export default function EscrowFunding() {
   });
 
   const [transactionStatus, setTransactionStatus] = useState(null);
+  const [txHash, setTxHash] = useState(null);
+  const [offerId, setOfferId] = useState(null);
   const [errors, setErrors] = useState({});
   const [focusedField, setFocusedField] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   const validateForm = () => {
     const newErrors = {};
@@ -37,8 +42,10 @@ export default function EscrowFunding() {
       newErrors.creditScore = 'Credit score must be between 0 and 850';
     }
 
-    if (!formData.lenderAddress || formData.lenderAddress.length < 10) {
+    if (!formData.lenderAddress) {
       newErrors.lenderAddress = 'Please enter a valid lender address';
+    } else if (!isValidEthAddress(formData.lenderAddress)) {
+      newErrors.lenderAddress = 'Invalid Ethereum address format (must be 0x followed by 40 hex characters)';
     }
 
     setErrors(newErrors);
@@ -51,20 +58,47 @@ export default function EscrowFunding() {
     }
 
     setTransactionStatus('pending');
+    setErrorMessage(null);
 
-    setTimeout(() => {
+    try {
+      // Call blockchain API to create loan offer
+      const result = await createLoanOffer({
+        lenderAddress: formData.lenderAddress,
+        amountEth: parseFloat(formData.amount),
+        durationDays: parseInt(formData.duration),
+        minCreditScore: parseInt(formData.creditScore)
+      });
+
+      console.log('[Escrow] Loan offer created:', result);
+      
+      // Store transaction details
+      setTxHash(result.txHash);
+      setOfferId(result.offerId);
       setTransactionStatus('confirmed');
       
+      // Reset form after 3 seconds
       setTimeout(() => {
         setTransactionStatus(null);
+        setTxHash(null);
+        setOfferId(null);
         setFormData({
           amount: '',
           duration: '',
           creditScore: '',
           lenderAddress: ''
         });
-      }, 3000);
-    }, 2000);
+      }, 5000);
+    } catch (error) {
+      console.error('[Escrow] Error creating loan offer:', error);
+      setErrorMessage(error.message || 'Failed to create loan offer');
+      setTransactionStatus('error');
+      
+      // Reset error state after 5 seconds
+      setTimeout(() => {
+        setTransactionStatus(null);
+        setErrorMessage(null);
+      }, 5000);
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -81,25 +115,67 @@ export default function EscrowFunding() {
   };
 
   // Transaction Status Modal
-  if (transactionStatus === 'pending' || transactionStatus === 'confirmed') {
+  if (transactionStatus === 'pending' || transactionStatus === 'confirmed' || transactionStatus === 'error') {
     return (
       <div className="min-h-screen bg-black text-white pt-24 pb-12 px-4 flex items-center justify-center">
         <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-10 text-center">
           {transactionStatus === 'pending' && (
             <>
               <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-6" />
-              <h2 className="text-3xl font-bold mb-3">Processing Request</h2>
-              <p className="text-gray-400">Please wait while we process your escrow configuration...</p>
+              <h2 className="text-3xl font-bold mb-3">Creating Offer</h2>
+              <p className="text-gray-400">Creating your loan offer on the blockchain...</p>
+              <p className="text-sm text-gray-500 mt-2">This may take a few seconds</p>
             </>
           )}
           
           {transactionStatus === 'confirmed' && (
             <>
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-12 h-12 text-black" strokeWidth={3} />
+              <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-12 h-12 text-white" strokeWidth={3} />
               </div>
               <h2 className="text-3xl font-bold mb-3">Success!</h2>
-              <p className="text-gray-400">Your escrow has been configured.</p>
+              <p className="text-gray-400 mb-6">Your loan offer has been created on the blockchain.</p>
+              
+              {offerId && (
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 mb-4">
+                  <p className="text-xs text-gray-400 mb-1">Offer ID</p>
+                  <p className="text-xl font-bold text-green-400">#{offerId}</p>
+                </div>
+              )}
+              
+              {txHash && (
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                  <p className="text-xs text-gray-400 mb-2">Transaction Hash</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <code className="text-sm text-gray-300 font-mono">{formatTxHash(txHash, 8)}</code>
+                    <button
+                      onClick={() => window.open(`https://etherscan.io/tx/${txHash}`, '_blank')}
+                      className="text-blue-400 hover:text-blue-300 transition-colors"
+                      title="View on Etherscan"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-xs text-gray-500 mt-6">Redirecting to dashboard...</p>
+            </>
+          )}
+          
+          {transactionStatus === 'error' && (
+            <>
+              <div className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-12 h-12 text-white" strokeWidth={3} />
+              </div>
+              <h2 className="text-3xl font-bold mb-3">Error</h2>
+              <p className="text-gray-400 mb-4">Failed to create loan offer</p>
+              {errorMessage && (
+                <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-red-400">{errorMessage}</p>
+                </div>
+              )}
+              <p className="text-xs text-gray-500">Please try again...</p>
             </>
           )}
         </div>
@@ -129,12 +205,12 @@ export default function EscrowFunding() {
             <div>
               <label className="block text-sm font-medium text-white mb-2">
                 <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4" />
-                  Amount (USDC)
+                  <Coins className="w-4 h-4" />
+                  Amount (ETH)
                 </div>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">Ξ</span>
                 <input
                   type="number"
                   value={formData.amount}
@@ -156,7 +232,7 @@ export default function EscrowFunding() {
                     onClick={() => handleInputChange('amount', preset)}
                     className="px-3 py-1 bg-zinc-800 border border-zinc-700 rounded text-sm hover:bg-zinc-700 hover:border-white transition-colors"
                   >
-                    ${parseInt(preset).toLocaleString()}
+                    Ξ{parseInt(preset).toLocaleString()}
                   </button>
                 ))}
               </div>

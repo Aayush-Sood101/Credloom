@@ -6,7 +6,7 @@ import {
   TrendingUp, 
   Shield, 
   Settings,
-  DollarSign,
+  Coins,
   PieChart,
   Clock,
   CheckCircle,
@@ -192,15 +192,15 @@ export default function LenderDashboard() {
               <h3 className="font-semibold text-sm">Escrow Balance</h3>
             </div>
             <div>
-              <p className="text-2xl font-bold mb-1">${dashboardData.wallet.escrowBalance}</p>
+              <p className="text-2xl font-bold mb-1">Ξ{dashboardData.wallet.escrowBalance}</p>
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between text-gray-400">
                   <span>Available</span>
-                  <span className="text-green-400">${dashboardData.wallet.availableBalance}</span>
+                  <span className="text-green-400">Ξ{dashboardData.wallet.availableBalance}</span>
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>Locked</span>
-                  <span className="text-orange-400">${dashboardData.wallet.lockedBalance}</span>
+                  <span className="text-orange-400">Ξ{dashboardData.wallet.lockedBalance}</span>
                 </div>
               </div>
             </div>
@@ -210,11 +210,11 @@ export default function LenderDashboard() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-purple-400" />
+                <Coins className="w-5 h-5 text-purple-400" />
               </div>
               <h3 className="font-semibold text-sm">Total Lent</h3>
             </div>
-            <p className="text-2xl font-bold mb-1">${dashboardData.stats.totalLent}</p>
+            <p className="text-2xl font-bold mb-1">Ξ{dashboardData.stats.totalLent}</p>
             <p className="text-xs text-gray-400">Lifetime</p>
           </div>
 
@@ -238,7 +238,7 @@ export default function LenderDashboard() {
               </div>
               <h3 className="font-semibold text-sm">Total Earnings</h3>
             </div>
-            <p className="text-2xl font-bold text-green-400 mb-1">${dashboardData.stats.totalEarnings}</p>
+            <p className="text-2xl font-bold text-green-400 mb-1">Ξ{dashboardData.stats.totalEarnings}</p>
             <p className="text-xs text-gray-400">All time</p>
           </div>
 
@@ -268,7 +268,7 @@ export default function LenderDashboard() {
                     {' • '}
                     Credit Score Range: {dashboardData.riskConfig.minCreditScore} - {dashboardData.riskConfig.maxCreditScore}
                     {' • '}
-                    Loan Range: ${dashboardData.riskConfig.minLoanAmount} - ${dashboardData.riskConfig.maxLoanAmount}
+                    Loan Range: Ξ{dashboardData.riskConfig.minLoanAmount} - Ξ{dashboardData.riskConfig.maxLoanAmount}
                   </p>
                 </div>
               </div>
@@ -320,7 +320,7 @@ export default function LenderDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-400">Earnings</p>
-                  <p className="text-2xl font-bold text-green-400">${dashboardData.performanceHistory.thisMonth.earnings}</p>
+                  <p className="text-2xl font-bold text-green-400">Ξ{dashboardData.performanceHistory.thisMonth.earnings}</p>
                 </div>
                 <div className="flex items-center gap-1 text-green-400 text-sm">
                   <ArrowUpRight className="w-4 h-4" />
@@ -346,7 +346,7 @@ export default function LenderDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-400">Earnings</p>
-                  <p className="text-2xl font-bold text-green-400">${dashboardData.performanceHistory.lastMonth.earnings}</p>
+                  <p className="text-2xl font-bold text-green-400">Ξ{dashboardData.performanceHistory.lastMonth.earnings}</p>
                 </div>
                 <div className="flex items-center gap-1 text-green-400 text-sm">
                   <ArrowUpRight className="w-4 h-4" />
@@ -401,7 +401,7 @@ export default function LenderDashboard() {
                       </div>
                     </td>
                     <td className="py-4 px-4">
-                      <p className="font-semibold">${loan.amount}</p>
+                      <p className="font-semibold">Ξ{loan.amount}</p>
                     </td>
                     <td className="py-4 px-4">
                       <p className="text-sm text-green-400">{loan.interestRate}</p>

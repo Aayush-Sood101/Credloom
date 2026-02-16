@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react';
+import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getBorrowerLoanDetail } from '@/lib/api/borrower';
 import { 
@@ -12,20 +12,24 @@ import {
   TrendingDown,
   Shield,
   Calendar,
-  DollarSign,
+  Coins,
   AlertCircle,
   Info,
   ChevronRight
 } from 'lucide-react';
 
 export default function LoanDetail({ params }) {
-  const { loanId } = params;
+  const { loanId } = use(params);
   
   // Loan data from API
   const [loanData, setLoanData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [errorStatus, setErrorStatus] = useState(null); // Track HTTP status code
+  
+  // Payment state
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
     const fetchLoanData = async () => {
@@ -60,6 +64,16 @@ export default function LoanDetail({ params }) {
       fetchLoanData();
     }
   }, [loanId]);
+
+  const handlePayLoan = async () => {
+    setIsPaying(true);
+    
+    // Simulate payment processing (hardcoded)
+    setTimeout(() => {
+      setIsPaying(false);
+      setPaymentSuccess(true);
+    }, 1500);
+  };
 
   const getStatusColor = (status) => {
     const colors = {
@@ -231,146 +245,71 @@ export default function LoanDetail({ params }) {
                 </div>
               </div>
 
-              {/* Status Information */}
-              {loanData.status === 'selected' && (
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-blue-400 mb-1">Loan Selected</p>
-                      <p className="text-sm text-gray-300">
-                        This loan has been successfully selected. The lender has been notified and the loan will become active soon. 
-                        Repayment features will be available once the loan is activated on the blockchain.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {loanData.status === 'active' && (
-                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-green-400 mb-1">Loan Active</p>
-                      <p className="text-sm text-gray-300">
-                        Your loan is now active. Funds have been disbursed to your wallet. 
-                        Please ensure timely repayment to maintain your credit score.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {loanData.status === 'repaid' && (
-                <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-green-400 mb-1">Loan Fully Repaid ✓</p>
-                      <p className="text-sm text-gray-300">
-                        Congratulations! This loan has been fully repaid. Your credit score has been updated positively.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {loanData.status === 'defaulted' && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-red-400 mb-1">Loan Defaulted</p>
-                      <p className="text-sm text-gray-300">
-                        This loan has been marked as defaulted. Your credit score has been negatively impacted and your stake may be slashed.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Timeline / Next Steps Card */}
+            {/* Payment Interface */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold mb-4">What&apos;s Next?</h2>
-              <div className="space-y-4">
-                {loanData.status === 'selected' && (
-                  <>
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">
-                        1
-                      </div>
-                      <div>
-                        <p className="font-semibold">Loan Confirmation</p>
-                        <p className="text-sm text-gray-400">
-                          The lender will review and confirm the loan terms. This usually takes a few minutes.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 opacity-50">
-                      <div className="flex-shrink-0 w-8 h-8 bg-zinc-700 text-gray-400 rounded-full flex items-center justify-center font-bold">
-                        2
-                      </div>
-                      <div>
-                        <p className="font-semibold">Smart Contract Execution</p>
-                        <p className="text-sm text-gray-400">
-                          The loan will be registered on the blockchain and funds will be transferred to your wallet.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 opacity-50">
-                      <div className="flex-shrink-0 w-8 h-8 bg-zinc-700 text-gray-400 rounded-full flex items-center justify-center font-bold">
-                        3
-                      </div>
-                      <div>
-                        <p className="font-semibold">Repayment</p>
-                        <p className="text-sm text-gray-400">
-                          Once active, you can start making repayments according to the agreed terms.
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {loanData.status === 'active' && (
-                  <div className="text-center py-4">
-                    <Calendar className="w-12 h-12 text-blue-400 mx-auto mb-3" />
-                    <p className="text-gray-300 mb-4">
-                      Your loan is active. Repayment features coming soon via smart contract integration.
+              <h2 className="text-xl font-bold mb-4">Loan Repayment</h2>
+              
+              {!paymentSuccess ? (
+                <div className="text-center py-6">
+                  <div className="mb-6">
+                    <Wallet className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+                    <p className="text-gray-300 mb-2">
+                      Ready to repay your loan?
                     </p>
+                    <p className="text-sm text-gray-500">
+                      Click the button below to complete your loan payment
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={handlePayLoan}
+                    disabled={isPaying}
+                    className="inline-flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-xl hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-2xl hover:scale-105"
+                  >
+                    {isPaying ? (
+                      <>
+                        <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                        Processing Payment...
+                      </>
+                    ) : (
+                      <>
+                        <Wallet className="w-7 h-7" />
+                        Repay Loan
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="mb-6">
+                    <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                      <CheckCircle className="w-12 h-12 text-white" />
+                    </div>
+                    <h3 className="text-3xl font-bold text-green-400 mb-3">
+                      Loan Has Been Paid! 🎉
+                    </h3>
+                    <p className="text-gray-300 text-lg mb-4">
+                      Your loan has been successfully repaid.
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Thank you for your timely payment. Your credit score has been updated.
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-3 justify-center mt-6">
                     <Link
                       href="/borrower"
                       className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                     >
-                      View All Loans
+                      Back to Dashboard
                       <ChevronRight className="w-5 h-5" />
                     </Link>
                   </div>
-                )}
-
-                {(loanData.status === 'repaid' || loanData.status === 'defaulted') && (
-                  <div className="text-center py-4">
-                    <p className="text-gray-300 mb-4">
-                      This loan has been closed. View your other loans or apply for a new one.
-                    </p>
-                    <div className="flex gap-3 justify-center">
-                      <Link
-                        href="/borrower"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-colors"
-                      >
-                        Dashboard
-                      </Link>
-                      <Link
-                        href="/borrower/marketplace"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-zinc-800 border border-zinc-700 text-white rounded-lg font-semibold hover:bg-zinc-700 transition-colors"
-                      >
-                        Apply for New Loan
-                      </Link>
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </>
         )}

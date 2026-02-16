@@ -7,7 +7,7 @@ import {
   Save,
   AlertCircle,
   CheckCircle,
-  DollarSign,
+  Coins,
   Users,
   TrendingUp,
   Info
@@ -80,10 +80,10 @@ export default function InsuranceConfiguration() {
 
     // Coverage Validation
     if (parseFloat(config.maxCoveragePerLoan) < 100 || parseFloat(config.maxCoveragePerLoan) > 50000) {
-      newErrors.maxCoverage = 'Max coverage must be between $100 and $50,000';
+      newErrors.maxCoverage = 'Max coverage must be between 100 and 50,000 ETH';
     }
     if (parseFloat(config.minCoveragePerLoan) < 50 || parseFloat(config.minCoveragePerLoan) > parseFloat(config.maxCoveragePerLoan)) {
-      newErrors.minCoverage = 'Min coverage must be between $50 and max coverage';
+      newErrors.minCoverage = 'Min coverage must be between 50 ETH and max coverage';
     }
     if (parseFloat(config.coveragePercentage) < 50 || parseFloat(config.coveragePercentage) > 100) {
       newErrors.coveragePercentage = 'Coverage percentage must be between 50% and 100%';
@@ -91,7 +91,7 @@ export default function InsuranceConfiguration() {
 
     // Pool Validation
     if (parseFloat(config.totalPoolCapacity) < 10000) {
-      newErrors.poolCapacity = 'Pool capacity must be at least $10,000';
+      newErrors.poolCapacity = 'Pool capacity must be at least 10,000 ETH';
     }
     if (parseFloat(config.reserveRatio) < 10 || parseFloat(config.reserveRatio) > 50) {
       newErrors.reserveRatio = 'Reserve ratio must be between 10% and 50%';
@@ -322,7 +322,7 @@ export default function InsuranceConfiguration() {
           {/* Premium Rates */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-400" />
+              <Coins className="w-5 h-5 text-green-400" />
               Premium Rates
             </h2>
             <p className="text-sm text-gray-400 mb-6">
@@ -355,7 +355,7 @@ export default function InsuranceConfiguration() {
                 )}
                 {config.tiersCovered.excellent && (
                   <p className="text-xs text-gray-400 mt-2">
-                    Example: $5,000 loan = ${(parseFloat(config.premiumRates.excellent) / 100 * 5000).toFixed(2)} premium
+                    Example: 5,000 ETH loan = Ξ{(parseFloat(config.premiumRates.excellent) / 100 * 5000).toFixed(2)} premium
                   </p>
                 )}
               </div>
@@ -385,7 +385,7 @@ export default function InsuranceConfiguration() {
                 )}
                 {config.tiersCovered.good && (
                   <p className="text-xs text-gray-400 mt-2">
-                    Example: $5,000 loan = ${(parseFloat(config.premiumRates.good) / 100 * 5000).toFixed(2)} premium
+                    Example: 5,000 ETH loan = Ξ{(parseFloat(config.premiumRates.good) / 100 * 5000).toFixed(2)} premium
                   </p>
                 )}
               </div>
@@ -415,7 +415,7 @@ export default function InsuranceConfiguration() {
                 )}
                 {config.tiersCovered.fair && (
                   <p className="text-xs text-gray-400 mt-2">
-                    Example: $5,000 loan = ${(parseFloat(config.premiumRates.fair) / 100 * 5000).toFixed(2)} premium
+                    Example: 5,000 ETH loan = Ξ{(parseFloat(config.premiumRates.fair) / 100 * 5000).toFixed(2)} premium
                   </p>
                 )}
               </div>
