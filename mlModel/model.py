@@ -38,7 +38,7 @@ print("Tier 3:", predict_ai_risk_score(10, 5, 25, 60, 3)[0])
 
 # cURL
 """
-curl -X POST http://13.202.107.244:5000/predict \
+curl -X POST http://<IP>:<PORT>/predict \
   -H "Content-Type: application/json" \
   -d '{
     "total_transactions": 100,
@@ -52,7 +52,7 @@ curl -X POST http://13.202.107.244:5000/predict \
 # Python
 """
 import requests
-response = requests.post('http://13.202.107.244:5000/predict', json={
+response = requests.post('http://<IP>:<PORT>/predict', json={
 'total_transactions': 100,
 'num_previous_loans': 2,
 'total_previous_loans_eth': 1.5,
