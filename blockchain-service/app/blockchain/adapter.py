@@ -12,7 +12,6 @@ from app.blockchain.contracts import (
 # ---------------------------------------------------------
 # 1. SETUP & AUTH (Admin)
 # ---------------------------------------------------------
-
 PRIVATE_KEY = os.getenv("BACKEND_PRIVATE_KEY")
 if not PRIVATE_KEY:
     raise RuntimeError("BACKEND_PRIVATE_KEY not found")
@@ -20,13 +19,9 @@ if not PRIVATE_KEY:
 account = w3.eth.account.from_key(PRIVATE_KEY)
 print("✅ Backend blockchain signer loaded:", account.address)
 
-
 # ---------------------------------------------------------
 # 2. DEMO WALLETS (Custodial Mode)
 # ---------------------------------------------------------
-# These keys allow the backend to sign on behalf of users for the Hackathon demo.
-# In production, users would sign with MetaMask.
-
 DEMO_WALLETS = {
     "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     "0x70997970C51812dc3A010C7d01b50e0d17dc79C8": "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
@@ -51,134 +46,82 @@ DEMO_WALLETS = {
 }
 
 def get_signer_key(address: str) -> str:
-    """Safely retrieves the private key for a given user address (case-insensitive)."""
-    # Try exact match first
     if address in DEMO_WALLETS:
         return DEMO_WALLETS[address]
-    
-    # Try case-insensitive match
     for stored_addr, key in DEMO_WALLETS.items():
         if stored_addr.lower() == address.lower():
             return key
-            
-    raise ValueError(f"No private key found for demo user {address}. Please use one of the Hardhat test accounts.")
-
+    raise ValueError(f"No private key found for demo user {address}")
 
 # ---------------------------------------------------------
-# 3. WRITE OPERATIONS (Transactions)
+# 3. WRITE OPERATIONS
 # ---------------------------------------------------------
-
-# In app/blockchain/adapter.py
-
-def create_offer_custodial(
-    lender_address: str,
-    duration: int,
-    min_credit_score: int,
-    amount_eth: float
-) -> dict:  # <--- Return type changed to dict
-    """
-    [User Action] Creates a lender offer. 
-    Waits for the transaction to confirm and returns the Offer ID.
-    """
+def create_offer_custodial(lender_address: str, duration: int, min_credit_score: int, amount_eth: float) -> dict:
     private_key = get_signer_key(lender_address)
     amount_wei = w3.to_wei(amount_eth, 'ether')
-
-    # 1. Build & Send Transaction
     nonce = w3.eth.get_transaction_count(lender_address)
-    tx = liquidity_pool.functions.createOffer(
-        duration,
-        min_credit_score
-    ).build_transaction({
+    tx = liquidity_pool.functions.createOffer(duration, min_credit_score).build_transaction({
         "from": lender_address,
         "value": amount_wei,
         "nonce": nonce,
         "gas": 300_000,
         "gasPrice": w3.eth.gas_price,
     })
-
     signed = w3.eth.account.sign_transaction(tx, private_key)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-    
-    # 2. WAIT for receipt (Critical Step)
-    # This blocks the code until the blockchain confirms the transaction
-    print(f"⏳ Waiting for transaction {tx_hash.hex()}...")
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    
-    # 3. Extract 'OfferCreated' event logs
-    # The contract emits: event OfferCreated(uint256 indexed offerId, address indexed lender);
     logs = liquidity_pool.events.OfferCreated().process_receipt(receipt)
-    
     if not logs:
         raise ValueError("Transaction failed to emit OfferCreated event")
-        
-    offer_id = logs[0]['args']['offerId']
-    print(f"✅ Offer Created! ID: {offer_id}")
+    return {"txHash": tx_hash.hex(), "offerId": logs[0]['args']['offerId']}
 
-    return {
-        "txHash": tx_hash.hex(),
-        "offerId": offer_id
-    }
-
-def accept_offer(
-    offer_id: int,
-    borrower: str,
-    interest: int,
-    is_insured: bool,
-    insurer: str
-) -> str:
+def accept_offer(offer_id: int, borrower: str, interest: int, is_insured: bool, insurer: str) -> dict:
     """
-    [System Action] Matches a borrower to a loan.
-    Uses the Backend's private key.
+    [System Action] Returns dict with txHash and blockchainLoanId.
     """
     tx = liquidity_pool.functions.acceptOffer(
-        offer_id,
-        borrower,
-        interest,
-        is_insured,
-        insurer
+        offer_id, borrower, interest, is_insured, insurer
     ).build_transaction({
         "from": account.address,
         "nonce": w3.eth.get_transaction_count(account.address),
         "gas": 600_000,
         "gasPrice": w3.eth.gas_price,
     })
-
     signed = w3.eth.account.sign_transaction(tx, PRIVATE_KEY)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-
-    return tx_hash.hex()
-
+    
+    # Wait for receipt to get the loanId event
+    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    logs = liquidity_pool.events.OfferAccepted().process_receipt(receipt)
+    if not logs:
+        raise ValueError("Transaction failed to emit OfferAccepted event")
+        
+    return {
+        "txHash": tx_hash.hex(),
+        "blockchainLoanId": str(logs[0]['args']['loanId'])
+    }
 
 def trigger_default(loan_id: int) -> str:
-    """
-    [System Action] Marks a loan as default.
-    Uses the Backend's private key.
-    """
     tx = loan_escrow.functions.markDefault(loan_id).build_transaction({
         "from": account.address,
         "nonce": w3.eth.get_transaction_count(account.address),
         "gas": 200_000,
         "gasPrice": w3.eth.gas_price,
     })
-
     signed = w3.eth.account.sign_transaction(tx, PRIVATE_KEY)
     return w3.eth.send_raw_transaction(signed.raw_transaction).hex()
 
-
 # ---------------------------------------------------------
-# 4. READ OPERATIONS (View only)
+# 4. READ OPERATIONS
 # ---------------------------------------------------------
-
 def is_borrower_flagged(address: str) -> bool:
     return reputation_registry.functions.isBorrowerFlagged(address).call()
 
 def get_offer_amount(offer_id: int) -> int:
-    """Fetches the principal amount for a specific offer in Wei."""
     offer_data = liquidity_pool.functions.offers(offer_id).call()
-    return offer_data[1]  # index 1 is 'amount'
+    return offer_data[1]
 
 def get_balance_wei(address: str) -> int:
-    """Returns the balance of the address in WEI (1 ETH = 10^18 WEI)."""
     if not w3.is_address(address):
         raise ValueError("Invalid Blockchain Address")
     return w3.eth.get_balance(address)
