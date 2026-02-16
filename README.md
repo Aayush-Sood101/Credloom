@@ -1,6 +1,10 @@
 ### What is Credloom?
 
+Yet to add..
+
 ### Architecture of the application
+
+Yet to add..
 
 #### ML model Sample:
 
